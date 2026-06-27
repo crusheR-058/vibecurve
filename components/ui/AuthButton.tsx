@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -37,9 +38,10 @@ export default function AuthButton({ className = "" }: { className?: string }) {
           animate={{ opacity: 1, scale: 1 }}
           className={`flex items-center gap-2 ${className}`}
         >
-          <div
-            title={session.user.email ?? undefined}
-            className="flex items-center gap-2 rounded-button border border-hair bg-card/70 py-1.5 pl-1.5 pr-3 text-sm text-ink"
+          <Link
+            href="/profile"
+            title="View your profile"
+            className="flex items-center gap-2 rounded-button border border-hair bg-card/70 py-1.5 pl-1.5 pr-3 text-sm text-ink transition hover:bg-card"
           >
             {session.user.image ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -50,7 +52,7 @@ export default function AuthButton({ className = "" }: { className?: string }) {
               </span>
             )}
             <span className="max-w-[120px] truncate">{session.user.name ?? "Signed in"}</span>
-          </div>
+          </Link>
           <button
             onClick={() => signOut()}
             className="text-xs text-muted transition hover:text-ink"

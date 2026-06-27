@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   motion,
   useScroll,
@@ -23,10 +24,51 @@ import ScrollProgress from "@/components/ui/ScrollProgress";
 import Marquee from "@/components/ui/Marquee";
 import CountUp from "@/components/ui/CountUp";
 import TiltCard from "@/components/ui/TiltCard";
+import Login from "@/components/scenes/Login";
+import Walkthrough from "@/components/scenes/Walkthrough";
+import type { Profile } from "@/lib/types";
 
 const HEADLINE_EASE = [0.22, 1, 0.36, 1] as const;
 
-export default function Landing() {
+// Site entry gate: the deployment link lands here → login → walkthrough
+// (flashcards + about) → the home page. No one reaches the home without it.
+export default function Home() {
+  const { status } = useSession();
+  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      let cancelled = false;
+      fetch("/api/profile")
+        .then((r) => r.json())
+        .then((d) => !cancelled && setProfile(d.profile ?? null))
+        .catch(() => !cancelled && setProfile(null));
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (status === "unauthenticated") setProfile(undefined);
+  }, [status]);
+
+  if (status === "loading" || (status === "authenticated" && profile === undefined)) {
+    return (
+      <main className="grid min-h-[100dvh] place-items-center bg-canvas">
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.6, repeat: Infinity }}
+          className="text-3xl"
+        >
+          🌊
+        </motion.div>
+      </main>
+    );
+  }
+  if (status === "unauthenticated") return <Login />;
+  if (profile === null) return <Walkthrough onComplete={(p) => setProfile(p)} />;
+  return <LandingHome />;
+}
+
+function LandingHome() {
   const router = useRouter();
   const go = () => router.push("/app");
   const reduce = useReducedMotion();
