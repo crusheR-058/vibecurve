@@ -6,11 +6,9 @@ import type { Profile } from "@/lib/types";
 
 export default function ProfileDashboard({
   profile,
-  name,
   onBack,
 }: {
   profile: Profile;
-  name?: string | null;
   onBack: () => void;
 }) {
   return (
@@ -35,7 +33,9 @@ export default function ProfileDashboard({
               &ldquo;{profile.describe}&rdquo;
             </p>
           )}
-          {name && <p className="mt-3 text-xs text-muted">{name}</p>}
+          <p className="mt-3 text-xs text-muted">
+            Anonymous · only this emoji is ever shown to other people
+          </p>
         </div>
 
         <div className="mt-10 grid gap-3 sm:grid-cols-2">

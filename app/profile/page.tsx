@@ -8,7 +8,7 @@ import type { Profile } from "@/lib/types";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
 
   useEffect(() => {
@@ -44,11 +44,7 @@ export default function ProfilePage() {
 
   return (
     <main className="relative min-h-[100dvh] bg-canvas">
-      <ProfileDashboard
-        profile={profile}
-        name={session?.user?.name}
-        onBack={() => router.push("/")}
-      />
+      <ProfileDashboard profile={profile} onBack={() => router.push("/")} />
     </main>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
+import { getEmoji } from "@/lib/session";
 
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === "true";
 
@@ -23,6 +25,10 @@ function GoogleMark() {
  */
 export default function AuthButton({ className = "" }: { className?: string }) {
   const { data: session, status } = useSession();
+  // Anonymous handle = the same emoji peers see in rooms. Read on the client
+  // (localStorage) after mount to avoid a hydration mismatch.
+  const [handle, setHandle] = useState("🌙");
+  useEffect(() => setHandle(getEmoji()), [session?.user?.email]);
   if (!AUTH_ENABLED) return null;
 
   if (status === "loading") {
@@ -40,18 +46,13 @@ export default function AuthButton({ className = "" }: { className?: string }) {
         >
           <Link
             href="/profile"
-            title="View your profile"
+            title="Your anonymous profile"
             className="flex items-center gap-2 rounded-button border border-hair bg-card/70 py-1.5 pl-1.5 pr-3 text-sm text-ink transition hover:bg-card"
           >
-            {session.user.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={session.user.image} alt="" className="h-6 w-6 rounded-full" />
-            ) : (
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-light text-xs">
-                {(session.user.name ?? "·").charAt(0)}
-              </span>
-            )}
-            <span className="max-w-[120px] truncate">{session.user.name ?? "Signed in"}</span>
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-light text-sm">
+              {handle}
+            </span>
+            <span className="max-w-[120px] truncate">Anonymous</span>
           </Link>
           <button
             onClick={() => signOut()}

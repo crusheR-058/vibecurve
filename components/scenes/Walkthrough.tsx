@@ -13,21 +13,35 @@ const NEEDED = 3; // domains to pick
 
 export default function Walkthrough({
   onComplete,
+  mode = "full",
+  initialWords = "",
+  initialDescribe = "",
 }: {
   onComplete: (profile: Profile) => void;
+  /** "interests" jumps straight to the flashcards and updates only the interests,
+   *  reusing the existing words/emoji/description (used after a room burns). */
+  mode?: "full" | "interests";
+  initialWords?: string;
+  initialDescribe?: string;
 }) {
-  const [phase, setPhase] = useState<Phase>("words");
-  const [words, setWords] = useState("");
+  const interestsOnly = mode === "interests";
+  const [phase, setPhase] = useState<Phase>(interestsOnly ? "domains" : "words");
+  const [words, setWords] = useState(initialWords);
   const [selections, setSelections] = useState<DomainSelection[]>([]);
   const [active, setActive] = useState<Domain | null>(null);
   const [path, setPath] = useState<FlashNode[]>([]);
-  const [describe, setDescribe] = useState("");
+  const [describe, setDescribe] = useState(initialDescribe);
   const [error, setError] = useState<string | null>(null);
 
   const liveEmoji = words.trim() ? deriveEmoji(words) : "✨";
-  const stepIndex =
-    phase === "words" ? 0 : phase === "describe" ? NEEDED + 1 : selections.length + 1;
-  const total = NEEDED + 2;
+  const stepIndex = interestsOnly
+    ? selections.length
+    : phase === "words"
+      ? 0
+      : phase === "describe"
+        ? NEEDED + 1
+        : selections.length + 1;
+  const total = interestsOnly ? NEEDED : NEEDED + 2;
 
   const pickedIds = new Set(selections.map((s) => s.domainId));
 
@@ -42,7 +56,10 @@ export default function Walkthrough({
     setSelections(next);
     setActive(null);
     setPath([]);
-    if (next.length >= NEEDED) setPhase("describe");
+    if (next.length >= NEEDED) {
+      if (interestsOnly) save(next, initialDescribe);
+      else setPhase("describe");
+    }
   };
 
   const pickNode = (node: FlashNode) => {
@@ -57,7 +74,7 @@ export default function Walkthrough({
     else setActive(null);
   };
 
-  const finish = async (skip: boolean) => {
+  const save = async (sels: DomainSelection[], desc?: string) => {
     setPhase("saving");
     setError(null);
     try {
@@ -66,8 +83,8 @@ export default function Walkthrough({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           words: words.trim(),
-          domains: selections,
-          describe: skip ? undefined : describe.trim() || undefined,
+          domains: sels,
+          describe: desc?.trim() || undefined,
         }),
       });
       if (!res.ok) throw new Error(String(res.status));
@@ -75,9 +92,11 @@ export default function Walkthrough({
       onComplete(data.profile as Profile);
     } catch {
       setError("Couldn't save that — please try again.");
-      setPhase("describe");
+      setPhase(interestsOnly ? "domains" : "describe");
     }
   };
+
+  const finish = (skip: boolean) => save(selections, skip ? undefined : describe);
 
   const cards = active ? childrenAt(active, path) : [];
 
@@ -152,11 +171,19 @@ export default function Walkthrough({
           >
             {!active ? (
               <>
-                <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-accent">
-                  Pick {NEEDED} things you&apos;re into · {selections.length}/{NEEDED}
-                </p>
+                {interestsOnly ? (
+                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-accent">
+                    A new night · pick {NEEDED} fresh interests · {selections.length}/{NEEDED}
+                  </p>
+                ) : (
+                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-accent">
+                    Pick {NEEDED} things you&apos;re into · {selections.length}/{NEEDED}
+                  </p>
+                )}
                 <h2 className="mb-7 font-serif-display text-[26px] leading-tight text-ink sm:text-[32px]">
-                  What are you into? Pick one to branch in.
+                  {interestsOnly
+                    ? "New night, new you — what are you into now?"
+                    : "What are you into? Pick one to branch in."}
                 </h2>
                 {selections.length > 0 && (
                   <div className="mb-6 flex flex-wrap justify-center gap-2">
@@ -196,6 +223,19 @@ export default function Walkthrough({
                     );
                   })}
                 </div>
+                {interestsOnly && error && (
+                  <div className="mt-6 flex flex-col items-center gap-3">
+                    <p className="text-xs text-red-400">{error}</p>
+                    {selections.length >= NEEDED && (
+                      <button
+                        onClick={() => save(selections, initialDescribe)}
+                        className="rounded-button border border-accent/40 bg-accent-light/40 px-5 py-2.5 text-sm font-medium text-accent transition hover:bg-accent-light/70"
+                      >
+                        Save my new interests
+                      </button>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
               <>

@@ -14,13 +14,23 @@ import DrawYourDay from "@/components/scenes/DrawYourDay";
 import Matching from "@/components/scenes/Matching";
 import ParallelRoom from "@/components/scenes/ParallelRoom";
 import MidnightBurn from "@/components/scenes/MidnightBurn";
+import Walkthrough from "@/components/scenes/Walkthrough";
 import { toast } from "@/components/ui/Toast";
-import { getEmoji, getUserId, rememberCurve, rememberMatch } from "@/lib/session";
-import type { CurvePoints, MatchResult } from "@/lib/types";
+import {
+  getEmoji,
+  getUserId,
+  pickEmoji,
+  rememberCurve,
+  rememberMatch,
+  setEmoji,
+} from "@/lib/session";
+import type { CurvePoints, MatchResult, Profile } from "@/lib/types";
 
 // VibeCheck = the curve experience only. Login + walkthrough happen at "/",
-// so here we just guard (must be signed in + onboarded) then draw → match → room → burn.
-type Scene = "loading" | "draw" | "matching" | "room" | "burn";
+// so here we guard (signed in + onboarded) then draw → match → room → burn.
+// When the night burns, we re-open the flashcards for fresh interests and
+// rotate the anonymous emoji handle — every session starts clean & nameless.
+type Scene = "loading" | "draw" | "matching" | "room" | "burn" | "refresh";
 
 export default function VibeCheckPage() {
   const router = useRouter();
@@ -29,6 +39,7 @@ export default function VibeCheckPage() {
   const [points, setPoints] = useState<CurvePoints>([5, 5, 5, 5, 5]);
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [ready, setReady] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const userId = session?.user?.email ?? getUserId();
 
@@ -48,6 +59,7 @@ export default function VibeCheckPage() {
           router.replace("/");
           return;
         }
+        setProfile(d.profile as Profile);
         setScene((s) => (s === "loading" ? "draw" : s));
       })
       .catch(() => !cancelled && router.replace("/"));
@@ -171,6 +183,21 @@ export default function VibeCheckPage() {
               />
             </motion.div>
           )}
+
+          {scene === "refresh" && profile && (
+            <motion.div key="refresh" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <Walkthrough
+                mode="interests"
+                initialWords={profile.words}
+                initialDescribe={profile.describe}
+                onComplete={(p) => {
+                  setProfile(p);
+                  setScene("draw");
+                  toast("New interests saved — draw tonight's curve.", "✨");
+                }}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -179,8 +206,14 @@ export default function VibeCheckPage() {
           <MidnightBurn
             onComplete={() => {
               setMatch(null);
-              setScene("draw");
-              toast("The night is gone. Draw again whenever you're ready.", "🌅");
+              setEmoji(pickEmoji()); // rotate to a fresh anonymous handle each night
+              if (profile) {
+                setScene("refresh");
+                toast("The night burned away — pick fresh interests.", "🌅");
+              } else {
+                setScene("draw");
+                toast("The night is gone. Draw again whenever you're ready.", "🌅");
+              }
             }}
           />
         )}
