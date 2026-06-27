@@ -41,15 +41,20 @@ export interface MatchResult {
 
 // ── Permanent profile (built in the walkthrough, never expires) ─────────────
 
-export interface ProfileAnswer {
-  /** question id */
+/** One node in a chosen branch (e.g. India, then North India…). */
+export interface DomainStep {
   id: string;
-  /** human question text */
-  q: string;
-  /** chosen option label */
-  a: string;
-  /** chosen option emoji */
+  label: string;
   emoji?: string;
+}
+
+/** A domain the user picked + how far they branched into it. */
+export interface DomainSelection {
+  domainId: string;
+  domainLabel: string;
+  domainEmoji: string;
+  /** ordered sub-selections, first level → deepest */
+  path: DomainStep[];
 }
 
 export interface Profile {
@@ -59,10 +64,8 @@ export interface Profile {
   words: string;
   /** emoji derived from `words` */
   emoji: string;
-  /** chosen personality track (chaos | calm | dreamer | cozy) */
-  track: string;
-  /** flashcard answers */
-  answers: ProfileAnswer[];
+  /** the 3 domains the user branched into (drives affinity matching) */
+  domains: DomainSelection[];
   /** "describe yourself in one sentence" (optional / skippable) */
   describe?: string;
   createdAt: number;

@@ -38,6 +38,7 @@ interface DB {
   rooms: Map<string, RoomState>;
   ambientCurves: Map<string, CurvePoints>; // roomId|userId -> curve (for honest match%)
   profiles: Map<string, Profile>; // key: userId — permanent (never reaped)
+  roomAff: Map<string, Set<string>>; // roomId -> affinity keys it's discoverable by
 }
 
 const g = globalThis as unknown as { __vibecurve?: DB };
@@ -48,6 +49,7 @@ const db: DB =
     rooms: new Map(),
     ambientCurves: new Map(),
     profiles: new Map(),
+    roomAff: new Map(),
   });
 
 const ROOM_CAP = 5;
@@ -137,11 +139,72 @@ function maybeAmbientReply(room: RoomState) {
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
+function affinityPercentMem(depth: number): number {
+  if (!depth) return 74;
+  return Math.min(98, 70 + depth * 6);
+}
+
+// Affinity matching (in-memory mirror of store-ddb): deepest shared branch first.
+function submitByAffinityMem(
+  userId: string,
+  emoji: string,
+  points: CurvePoints,
+  affKeys: string[],
+): MatchResult {
+  const now = Date.now();
+  let room: RoomState | undefined;
+  let matchedDepth = 0;
+
+  for (const key of affKeys) {
+    room = [...db.rooms.values()].find(
+      (r) =>
+        r.expiresAt > now &&
+        r.members.filter((m) => !m.ambient).length < ROOM_CAP &&
+        !r.members.some((m) => m.userId === userId) &&
+        (db.roomAff.get(r.roomId)?.has(key) ?? false),
+    );
+    if (room) {
+      matchedDepth = key.split(">").length;
+      break;
+    }
+  }
+
+  if (!room) {
+    const roomId = uid("room");
+    room = {
+      roomId,
+      date: today(),
+      signature: "",
+      members: [],
+      messages: [],
+      expiresAt: nextMidnight(),
+    };
+    db.rooms.set(roomId, room);
+    db.roomAff.set(roomId, new Set());
+    seedAmbient(room, points);
+  }
+
+  const keys = db.roomAff.get(room.roomId) ?? new Set<string>();
+  affKeys.forEach((k) => keys.add(k));
+  db.roomAff.set(room.roomId, keys);
+
+  room.members.push({ userId, emoji, joinedAt: now });
+
+  return {
+    roomId: room.roomId,
+    matchPercent: affinityPercentMem(matchedDepth),
+    signature: "",
+    you: { userId, emoji, joinedAt: now },
+  };
+}
+
 function submitCurveMem(
   userId: string,
   emoji: string,
   points: CurvePoints,
+  affKeys: string[] = [],
 ): MatchResult {
+  if (affKeys.length) return submitByAffinityMem(userId, emoji, points, affKeys);
   const date = today();
   const signature = signatureOf(points);
   db.curves.set(userId, { userId, emoji, points, signature, date, roomId: undefined });
@@ -229,10 +292,11 @@ export async function submitCurve(
   userId: string,
   emoji: string,
   points: CurvePoints,
+  affKeys: string[] = [],
 ): Promise<MatchResult> {
   return ddbConfigured
-    ? ddb.submitCurve(userId, emoji, points)
-    : submitCurveMem(userId, emoji, points);
+    ? ddb.submitCurve(userId, emoji, points, affKeys)
+    : submitCurveMem(userId, emoji, points, affKeys);
 }
 
 export async function getRoom(roomId: string): Promise<RoomState | null> {

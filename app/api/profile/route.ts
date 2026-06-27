@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/authOptions";
 import { getProfile, saveProfile } from "@/lib/store";
 import { deriveEmoji } from "@/lib/profileEmoji";
-import type { Profile, ProfileAnswer } from "@/lib/types";
+import type { DomainSelection, Profile } from "@/lib/types";
 
 // GET /api/profile → the signed-in user's permanent profile (or null).
 export async function GET() {
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const email = session?.user?.email;
   if (!email) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
-  let body: { words?: string; track?: string; answers?: ProfileAnswer[]; describe?: string };
+  let body: { words?: string; domains?: DomainSelection[]; describe?: string };
   try {
     body = await req.json();
   } catch {
@@ -30,8 +30,8 @@ export async function POST(req: Request) {
 
   const words = (body.words ?? "").trim().slice(0, 60);
   if (!words) return NextResponse.json({ error: "words required" }, { status: 400 });
-  if (!Array.isArray(body.answers) || body.answers.length === 0) {
-    return NextResponse.json({ error: "answers required" }, { status: 400 });
+  if (!Array.isArray(body.domains) || body.domains.length === 0) {
+    return NextResponse.json({ error: "domains required" }, { status: 400 });
   }
 
   const existing = await getProfile(email);
@@ -40,8 +40,7 @@ export async function POST(req: Request) {
     userId: email,
     words,
     emoji: deriveEmoji(words),
-    track: (body.track ?? "").slice(0, 24),
-    answers: body.answers.slice(0, 20),
+    domains: body.domains.slice(0, 5),
     describe: body.describe?.trim().slice(0, 280) || undefined,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { submitCurve } from "@/lib/store";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/authOptions";
+import { submitCurve, getProfile } from "@/lib/store";
 import { POINT_COUNT } from "@/lib/curve";
+import { affinityKeys } from "@/lib/domains";
 import type { CurvePoints } from "@/lib/types";
 
 // POST /api/curve
-// body: { userId, emoji, points: number[5] }
-// -> writes today's curve, matches into a Parallel Room, returns the match.
+// Draw triggers a match. Identity + interests come from the signed-in profile;
+// people are roomed by their deepest shared interest branch (affinity keys).
 export async function POST(req: Request) {
   let body: { userId?: string; emoji?: string; points?: number[] };
   try {
@@ -14,7 +17,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
 
-  const { userId, emoji, points } = body;
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email ?? null;
+  const userId = email ?? body.userId;
+
+  const { emoji, points } = body;
   if (
     !userId ||
     !emoji ||
@@ -26,10 +33,13 @@ export async function POST(req: Request) {
   }
 
   try {
+    const profile = email ? await getProfile(email) : null;
+    const keys = profile ? affinityKeys(profile.domains) : [];
     const result = await submitCurve(
       userId,
       emoji,
       points.map((p) => Math.round(p)) as CurvePoints,
+      keys,
     );
     return NextResponse.json(result);
   } catch (err) {

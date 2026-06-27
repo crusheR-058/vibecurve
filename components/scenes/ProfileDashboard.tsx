@@ -39,18 +39,21 @@ export default function ProfileDashboard({
         </div>
 
         <div className="mt-10 grid gap-3 sm:grid-cols-2">
-          {profile.answers.map((a, i) => (
+          {profile.domains.map((dsel, i) => (
             <motion.div
-              key={a.id}
+              key={dsel.domainId}
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05, duration: 0.4 }}
               className="rounded-card border border-hair bg-card p-4 shadow-soft"
             >
-              <p className="text-xs text-muted">{a.q}</p>
-              <p className="mt-1 text-[15px] text-ink">
-                <span className="mr-1.5">{a.emoji}</span>
-                {a.a}
+              <p className="text-xs text-muted">
+                {dsel.domainEmoji} {dsel.domainLabel}
+              </p>
+              <p className="mt-1 text-[15px] leading-relaxed text-ink">
+                {dsel.path.length
+                  ? dsel.path.map((p) => `${p.emoji ?? ""} ${p.label}`.trim()).join("  ›  ")
+                  : "—"}
               </p>
             </motion.div>
           ))}

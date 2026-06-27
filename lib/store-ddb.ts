@@ -56,7 +56,113 @@ interface AnyItem {
 
 // ── public API (matches lib/store.ts signatures, async) ─────────────────────
 
+function affinityPercent(depth: number): number {
+  if (!depth) return 74; // first soul in a fresh room
+  return Math.min(98, 70 + depth * 6); // deeper shared branch → higher %
+}
+
 export async function submitCurve(
+  userId: string,
+  emoji: string,
+  points: CurvePoints,
+  affKeys: string[] = [],
+): Promise<MatchResult> {
+  if (affKeys.length) return submitByAffinity(userId, emoji, points, affKeys);
+  return submitBySignature(userId, emoji, points);
+}
+
+// Match by shared interest branches — deepest key first ("reverse order"), so
+// the most-specific overlap rooms you with the most similar people.
+async function submitByAffinity(
+  userId: string,
+  emoji: string,
+  points: CurvePoints,
+  affKeys: string[],
+): Promise<MatchResult> {
+  const d = doc();
+  const date = today();
+  const ttl = midnightTtlSeconds();
+  const expiresAt = nextMidnight();
+  const now = Date.now();
+
+  let roomId: string | undefined;
+  let matchedDepth = 0;
+  for (const key of affKeys) {
+    const res = await d.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: "GSI1",
+        KeyConditionExpression: "GSI1PK = :pk",
+        ExpressionAttributeValues: { ":pk": `DATE#${date}#AFF#${key}` },
+      }),
+    );
+    const rids = [...new Set((res.Items ?? []).map((it) => it.roomId as string).filter(Boolean))];
+    for (const rid of rids) {
+      const meta = await d.send(
+        new GetCommand({ TableName: TABLE, Key: { PK: `ROOM#${rid}`, SK: "META" } }),
+      );
+      const m = meta.Item;
+      if (m && (m.expiresAt as number) > now && (m.memberCount as number) < ROOM_CAP) {
+        roomId = rid;
+        matchedDepth = key.split(">").length;
+        break;
+      }
+    }
+    if (roomId) break;
+  }
+
+  if (!roomId) {
+    roomId = uid("room");
+    await d.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: { PK: `ROOM#${roomId}`, SK: "META", date, signature: "", memberCount: 0, expiresAt, ttl },
+      }),
+    );
+    await seedAmbient(roomId, points, ttl);
+  }
+
+  await d.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: { PK: `ROOM#${roomId}`, SK: `MEMBER#${userId}`, userId, emoji, joinedAt: now, points, ttl },
+    }),
+  );
+  await d.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `ROOM#${roomId}`, SK: "META" },
+      UpdateExpression: "ADD memberCount :one",
+      ExpressionAttributeValues: { ":one": 1 },
+    }),
+  );
+
+  // index the room under each of our keys so future souls sharing any branch find it
+  for (const key of affKeys) {
+    await d.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: `ROOM#${roomId}`,
+          SK: `AFF#${key}`,
+          roomId,
+          GSI1PK: `DATE#${date}#AFF#${key}`,
+          GSI1SK: `ROOM#${roomId}`,
+          ttl,
+        },
+      }),
+    );
+  }
+
+  return {
+    roomId,
+    matchPercent: affinityPercent(matchedDepth),
+    signature: "",
+    you: { userId, emoji, joinedAt: now },
+  };
+}
+
+async function submitBySignature(
   userId: string,
   emoji: string,
   points: CurvePoints,
@@ -250,8 +356,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     userId,
     words: it.words as string,
     emoji: it.emoji as string,
-    track: it.track as string,
-    answers: (it.answers as Profile["answers"]) ?? [],
+    domains: (it.domains as Profile["domains"]) ?? [],
     describe: it.describe as string | undefined,
     createdAt: it.createdAt as number,
     updatedAt: it.updatedAt as number,
@@ -268,8 +373,7 @@ export async function saveProfile(p: Profile): Promise<Profile> {
         SK: "PROFILE",
         words: p.words,
         emoji: p.emoji,
-        track: p.track,
-        answers: p.answers,
+        domains: p.domains,
         describe: p.describe,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,

@@ -44,7 +44,7 @@ export default function VibeCheckPage() {
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        if (!d.profile) {
+        if (!d.profile || !d.profile.domains?.length) {
           router.replace("/");
           return;
         }

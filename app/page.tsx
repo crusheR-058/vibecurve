@@ -64,7 +64,8 @@ export default function Home() {
     );
   }
   if (status === "unauthenticated") return <Login />;
-  if (profile === null) return <Walkthrough onComplete={(p) => setProfile(p)} />;
+  if (!profile || profile.domains.length === 0)
+    return <Walkthrough onComplete={(p) => setProfile(p)} />;
   return <LandingHome />;
 }
 
