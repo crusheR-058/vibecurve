@@ -4,7 +4,11 @@
 
 **The anti-flex network** — presence over permanence, connection over content, honesty over perfection.
 
-**Live:** https://vibecurve.vercel.app
+[![Live on Vercel](https://img.shields.io/badge/Live-vibecurve.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vibecurve.vercel.app)
+
+### 🔗 Live app → **https://vibecurve.vercel.app**
+
+Auto-deployed from `main` via Vercel's GitHub integration.
 
 ## Stack
 
