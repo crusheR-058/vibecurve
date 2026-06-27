@@ -239,44 +239,90 @@ export default function Walkthrough({
               </>
             ) : (
               <>
-                <button
-                  onClick={goBack}
-                  className="mb-4 self-start text-sm text-muted transition hover:text-ink"
-                >
-                  ← back
-                </button>
-                {/* breadcrumb */}
-                <p className="mb-3 max-w-md text-xs text-muted">
-                  <span className="text-accent">{active.emoji} {active.label}</span>
-                  {path.map((nd) => (
-                    <span key={nd.id}> › {nd.label}</span>
-                  ))}
-                </p>
-                <h2 className="mb-7 font-serif-display text-[26px] leading-tight text-ink sm:text-[32px]">
-                  {path.length === 0 ? `Which ${active.label.toLowerCase()}?` : "Go deeper — or stop here."}
-                </h2>
-                <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
-                  {cards.map((c, i) => (
-                    <motion.button
-                      key={c.id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03, duration: 0.35 }}
-                      whileHover={{ y: -4 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => pickNode(c)}
-                      className="flex flex-col items-center gap-2 rounded-card border border-hair bg-card p-4 shadow-soft transition hover:border-accent hover:shadow-lift"
-                    >
-                      <span className="text-3xl">{c.emoji ?? "•"}</span>
-                      <span className="text-[13px] font-medium leading-tight text-ink">
-                        {c.label}
-                      </span>
-                      {c.children && c.children.length > 0 && (
-                        <span className="text-[10px] text-muted">tap to go deeper →</span>
-                      )}
-                    </motion.button>
-                  ))}
+                <div className="mb-5 flex w-full items-center justify-between">
+                  <button
+                    onClick={goBack}
+                    className="text-sm text-muted transition hover:text-ink"
+                  >
+                    ← back
+                  </button>
+                  <span className="text-xs text-muted">
+                    {selections.length}/{NEEDED} chosen
+                  </span>
                 </div>
+                <h2 className="mb-7 font-serif-display text-[24px] leading-tight text-ink sm:text-[30px]">
+                  {path.length === 0
+                    ? `Which ${active.label.toLowerCase()}?`
+                    : "Branch deeper — or stop here."}
+                </h2>
+
+                {/* the branch tree: the trunk (domain → your path) fans out to
+                    the next options with elbow connectors */}
+                <div className="w-full overflow-x-auto pb-1">
+                  <div className="flex w-max items-center py-2 pl-1 pr-4">
+                    {/* trunk */}
+                    <div className="flex items-center">
+                      <div className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-accent/50 bg-accent-light/40 px-4 py-2.5 text-sm font-medium text-ink shadow-soft">
+                        <span className="text-base">{active.emoji}</span>
+                        {active.label}
+                      </div>
+                      {path.map((nd) => (
+                        <div key={nd.id} className="flex items-center">
+                          <span className="h-px w-6 shrink-0 bg-accent/30" />
+                          <div className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-hair bg-card px-4 py-2.5 text-sm text-ink shadow-soft">
+                            {nd.emoji && <span className="text-base">{nd.emoji}</span>}
+                            {nd.label}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* trunk → children connector */}
+                    {cards.length > 0 && (
+                      <span className="h-px w-7 shrink-0 bg-accent/30" />
+                    )}
+
+                    {/* children fan out, joined by an elbow bracket */}
+                    {cards.length > 0 && (
+                      <div className="flex flex-col">
+                        {cards.map((c, i) => {
+                          const deeper = !!(c.children && c.children.length);
+                          return (
+                            <motion.div
+                              key={c.id}
+                              initial={{ opacity: 0, x: 10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.035, duration: 0.3 }}
+                              className="relative flex items-center py-1.5 pl-7"
+                            >
+                              {cards.length > 1 && (
+                                <span
+                                  className={`absolute left-0 w-px bg-accent/30 ${
+                                    i === 0
+                                      ? "bottom-0 top-1/2"
+                                      : i === cards.length - 1
+                                        ? "bottom-1/2 top-0"
+                                        : "bottom-0 top-0"
+                                  }`}
+                                />
+                              )}
+                              <span className="absolute left-0 top-1/2 h-px w-7 -translate-y-1/2 bg-accent/30" />
+                              <button
+                                onClick={() => pickNode(c)}
+                                className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-hair bg-card px-4 py-2.5 text-sm text-ink shadow-soft transition hover:border-accent hover:shadow-lift"
+                              >
+                                <span className="text-base">{c.emoji ?? "•"}</span>
+                                {c.label}
+                                {deeper && <span className="text-muted">›</span>}
+                              </button>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {path.length >= 1 && (
                   <button
                     onClick={() => completeDomain(active, path)}
