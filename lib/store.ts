@@ -1,4 +1,6 @@
 import type {
+  CallParticipant,
+  CallSignal,
   CurvePoints,
   MatchResult,
   Member,
@@ -8,6 +10,9 @@ import type {
   RoomState,
 } from "./types";
 import { safeAudioMime } from "./voice";
+
+/** A call presence is considered live only while its heartbeat is recent. */
+const CALL_STALE_MS = 10_000;
 import {
   MATCH_THRESHOLD,
   blendedMatchPercent,
@@ -48,6 +53,8 @@ interface DB {
   profiles: Map<string, Profile>; // key: userId — permanent (never reaped)
   roomAff: Map<string, Set<string>>; // roomId -> affinity keys it's discoverable by
   audio: Map<string, { audio: string; mime: string }>; // roomId|msgId -> voice blob (kept apart from the poll)
+  callPresence: Map<string, Map<string, CallParticipant>>; // roomId -> userId -> presence
+  callSignals: Map<string, CallSignal[]>; // roomId -> pending signaling queue
 }
 
 const g = globalThis as unknown as { __vibecurve?: DB };
@@ -60,6 +67,8 @@ const db: DB =
     profiles: new Map(),
     roomAff: new Map(),
     audio: new Map(),
+    callPresence: new Map(),
+    callSignals: new Map(),
   });
 
 const ROOM_CAP = 5;
@@ -409,4 +418,71 @@ export async function saveProfile(profile: Profile): Promise<Profile> {
   if (ddbConfigured) return ddb.saveProfile(profile);
   db.profiles.set(profile.userId, profile);
   return profile;
+}
+
+// ── group voice call: presence + signaling (in-memory mirror) ───────────────
+
+function callPresenceMap(roomId: string): Map<string, CallParticipant> {
+  let m = db.callPresence.get(roomId);
+  if (!m) {
+    m = new Map();
+    db.callPresence.set(roomId, m);
+  }
+  return m;
+}
+
+function callJoinMem(roomId: string, userId: string, emoji: string) {
+  callPresenceMap(roomId).set(userId, { userId, emoji, lastSeen: Date.now() });
+}
+
+function callLeaveMem(roomId: string, userId: string) {
+  db.callPresence.get(roomId)?.delete(userId);
+  const q = db.callSignals.get(roomId);
+  if (q) db.callSignals.set(roomId, q.filter((s) => s.to !== userId && s.from !== userId));
+}
+
+function callSignalMem(roomId: string, sig: CallSignal) {
+  const q = db.callSignals.get(roomId) ?? [];
+  q.push(sig);
+  // guard against runaway accumulation if a recipient never polls
+  db.callSignals.set(roomId, q.length > 800 ? q.slice(-800) : q);
+}
+
+function callPollMem(
+  roomId: string,
+  me: string,
+): { participants: CallParticipant[]; signals: CallSignal[] } {
+  const now = Date.now();
+  const m = callPresenceMap(roomId);
+  for (const [uid, p] of m) if (now - p.lastSeen > CALL_STALE_MS) m.delete(uid);
+  const participants = [...m.values()];
+
+  const q = db.callSignals.get(roomId) ?? [];
+  const signals = q.filter((s) => s.to === me); // delivered once…
+  db.callSignals.set(roomId, q.filter((s) => s.to !== me)); // …then dropped
+  return { participants, signals };
+}
+
+export async function callJoin(roomId: string, userId: string, emoji: string): Promise<void> {
+  return ddbConfigured ? ddb.joinCall(roomId, userId, emoji) : void callJoinMem(roomId, userId, emoji);
+}
+
+export async function callHeartbeat(roomId: string, userId: string, emoji: string): Promise<void> {
+  // heartbeat is just a presence refresh
+  return ddbConfigured ? ddb.joinCall(roomId, userId, emoji) : void callJoinMem(roomId, userId, emoji);
+}
+
+export async function callLeave(roomId: string, userId: string): Promise<void> {
+  return ddbConfigured ? ddb.leaveCall(roomId, userId) : void callLeaveMem(roomId, userId);
+}
+
+export async function callSignal(roomId: string, sig: CallSignal): Promise<void> {
+  return ddbConfigured ? ddb.sendSignal(roomId, sig) : void callSignalMem(roomId, sig);
+}
+
+export async function callPoll(
+  roomId: string,
+  me: string,
+): Promise<{ participants: CallParticipant[]; signals: CallSignal[] }> {
+  return ddbConfigured ? ddb.pollCall(roomId, me) : callPollMem(roomId, me);
 }

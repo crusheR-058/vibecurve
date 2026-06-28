@@ -45,6 +45,29 @@ export interface MessageInput {
   duration?: number;
 }
 
+// ── Group voice call (WebRTC mesh) ──────────────────────────────────────────
+// Audio is peer-to-peer; only this tiny signaling metadata transits the backend.
+
+/** Someone currently present in a room's live voice call. */
+export interface CallParticipant {
+  userId: string;
+  emoji: string;
+  /** ms; pruned once it goes stale so a crashed tab drops out */
+  lastSeen: number;
+}
+
+export type SignalKind = "offer" | "answer" | "candidate";
+
+/** One addressed WebRTC signaling message, delivered once then deleted. */
+export interface CallSignal {
+  from: string;
+  to: string;
+  kind: SignalKind;
+  /** JSON-encoded SDP or ICE candidate */
+  data: string;
+  ts: number;
+}
+
 export interface RoomState {
   roomId: string;
   date: string;

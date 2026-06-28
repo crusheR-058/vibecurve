@@ -7,6 +7,7 @@ import { toast } from "@/components/ui/Toast";
 import StickerArt from "@/components/room/StickerArt";
 import MediaTray from "@/components/room/MediaTray";
 import VoicePlayer from "@/components/room/VoicePlayer";
+import GroupCall from "@/components/room/GroupCall";
 import { useVoiceRecorder, type VoiceResult } from "@/components/room/useVoiceRecorder";
 import { getSticker } from "@/lib/stickers";
 import { MAX_AUDIO_B64 } from "@/lib/voice";
@@ -215,6 +216,9 @@ export default function ParallelRoom({
           </motion.div>
         ))}
       </div>
+
+      {/* group voice call — peer-to-peer audio, faces stay hidden */}
+      <GroupCall roomId={roomId} userId={userId} emoji={emoji} />
 
       <div className="h-px w-full bg-hair" />
 

@@ -1,4 +1,6 @@
 import {
+  BatchWriteCommand,
+  DeleteCommand,
   GetCommand,
   PutCommand,
   QueryCommand,
@@ -14,6 +16,8 @@ import {
 } from "./curve";
 import { midnightTtlSeconds, nextMidnight, today } from "./time";
 import type {
+  CallParticipant,
+  CallSignal,
   CurvePoints,
   MatchResult,
   Member,
@@ -22,8 +26,11 @@ import type {
   MessageKind,
   Profile,
   RoomState,
+  SignalKind,
 } from "./types";
 import { safeAudioMime } from "./voice";
+
+const CALL_STALE_MS = 10_000;
 
 /**
  * DynamoDB single-table implementation (playbook §10.1). Mirrors lib/store.ts's
@@ -595,4 +602,101 @@ async function maybeAmbientReply(roomId: string, ttl: number): Promise<void> {
       },
     }),
   );
+}
+
+// ── group voice call: presence + signaling ──────────────────────────────────
+// Items live under the room partition but use CALL#/SIG# keys, so getRoom (which
+// only reads META/MEMBER#/MSG#) never surfaces them. Audio is peer-to-peer; only
+// these few-hundred-byte SDP/ICE blobs ever touch the backend.
+
+export async function joinCall(roomId: string, userId: string, emoji: string): Promise<void> {
+  const d = doc();
+  await d.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `ROOM#${roomId}`,
+        SK: `CALL#${userId}`,
+        userId,
+        emoji,
+        lastSeen: Date.now(),
+        ttl: midnightTtlSeconds(),
+      },
+    }),
+  );
+}
+
+export async function leaveCall(roomId: string, userId: string): Promise<void> {
+  const d = doc();
+  await d.send(
+    new DeleteCommand({ TableName: TABLE, Key: { PK: `ROOM#${roomId}`, SK: `CALL#${userId}` } }),
+  );
+}
+
+export async function sendSignal(roomId: string, sig: CallSignal): Promise<void> {
+  const d = doc();
+  const ts = Date.now();
+  const sk = `SIG#${sig.to}#${ts}#${Math.random().toString(36).slice(2, 8)}`;
+  await d.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `ROOM#${roomId}`,
+        SK: sk,
+        from: sig.from,
+        to: sig.to,
+        kind: sig.kind,
+        data: sig.data,
+        ts,
+        ttl: midnightTtlSeconds(),
+      },
+    }),
+  );
+}
+
+export async function pollCall(
+  roomId: string,
+  me: string,
+): Promise<{ participants: CallParticipant[]; signals: CallSignal[] }> {
+  const d = doc();
+  const now = Date.now();
+
+  const pres = await d.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :c)",
+      ExpressionAttributeValues: { ":pk": `ROOM#${roomId}`, ":c": "CALL#" },
+    }),
+  );
+  const participants: CallParticipant[] = (pres.Items ?? [])
+    .filter((i) => now - (i.lastSeen as number) < CALL_STALE_MS)
+    .map((i) => ({ userId: i.userId as string, emoji: i.emoji as string, lastSeen: i.lastSeen as number }));
+
+  // signals addressed to me — delivered once, then deleted
+  const sigRes = await d.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :s)",
+      ExpressionAttributeValues: { ":pk": `ROOM#${roomId}`, ":s": `SIG#${me}#` },
+    }),
+  );
+  const items = (sigRes.Items ?? []) as AnyItem[];
+  const signals: CallSignal[] = items.map((i) => ({
+    from: i.from as string,
+    to: i.to as string,
+    kind: i.kind as SignalKind,
+    data: i.data as string,
+    ts: i.ts as number,
+  }));
+  for (let i = 0; i < items.length; i += 25) {
+    const chunk = items.slice(i, i + 25);
+    await d.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE]: chunk.map((it) => ({ DeleteRequest: { Key: { PK: it.PK as string, SK: it.SK } } })),
+        },
+      }),
+    );
+  }
+  return { participants, signals };
 }
