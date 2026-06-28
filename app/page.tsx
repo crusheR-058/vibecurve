@@ -10,13 +10,12 @@ import {
   useMotionValue,
   useSpring,
   useReducedMotion,
-  useInView,
 } from "framer-motion";
-import dynamic from "next/dynamic";
 import Nav from "@/components/landing/Nav";
 import FAQ from "@/components/landing/FAQ";
 import Footer from "@/components/landing/Footer";
 import Aurora from "@/components/ui/Aurora";
+import VibrantAurora from "@/components/ui/VibrantAurora";
 import CursorGlow from "@/components/ui/CursorGlow";
 import AnimatedWave from "@/components/ui/AnimatedWave";
 import FloatingParticles from "@/components/ui/FloatingParticles";
@@ -29,10 +28,6 @@ import TiltCard from "@/components/ui/TiltCard";
 import Login from "@/components/scenes/Login";
 import Walkthrough from "@/components/scenes/Walkthrough";
 import type { Profile } from "@/lib/types";
-
-// 3D scenes are client-only and lazy — they never block first paint or SSR.
-const HeroScene = dynamic(() => import("@/components/three/LavaBlobs"), { ssr: false });
-const FloatingOrbs = dynamic(() => import("@/components/three/FloatingOrbs"), { ssr: false });
 
 const HEADLINE_EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -89,14 +84,9 @@ function LandingHome() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
   const textY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -130]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 0.96]);
-  const fieldY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 140]);
+  const waveY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -36]);
   const auroraY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 90]);
   const cueOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0]);
-
-  // mount 3D scenes only while their section is near the viewport (no off-screen GPU)
-  const ctaRef = useRef<HTMLElement>(null);
-  const ctaInView = useInView(ctaRef, { margin: "200px" });
-  const heroInView = useInView(heroRef, { margin: "100px" });
 
   // ── Hero cursor parallax ──────────────────────────────────────────────────
   const mx = useMotionValue(0);
@@ -126,29 +116,10 @@ function LandingHome() {
         className="relative grid min-h-[100dvh] place-items-center px-6 pt-24"
       >
         <motion.div style={{ y: auroraY }} className="absolute inset-0">
-          <Aurora intensity={0.85} />
+          <VibrantAurora intensity={0.9} />
         </motion.div>
 
-        {/* liquid lava-lamp blobs — vibrant, gooey, full-bleed. Lazy + client-only. */}
-        {!reduce && heroInView && (
-          <motion.div
-            aria-hidden
-            style={{ y: fieldY, opacity: heroOpacity }}
-            className="pointer-events-none absolute inset-0 z-[1]"
-          >
-            <HeroScene className="h-full w-full" />
-          </motion.div>
-        )}
-
-        {/* soft scrim so the headline stays legible over the point field */}
-        {!reduce && heroInView && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(58%_46%_at_50%_44%,rgb(var(--canvas)/0.62),transparent_72%)]"
-          />
-        )}
-
-        <FloatingParticles count={14} />
+        <FloatingParticles count={16} />
 
         <motion.div
           style={{ opacity: heroOpacity }}
@@ -211,10 +182,14 @@ function LandingHome() {
             </Reveal>
           </motion.div>
 
-          {/* reduced-motion users get the brand wave as a still card instead of WebGL */}
-          {reduce && (
-            <div className="mt-16 w-full">
-              <div className="relative mx-auto max-w-2xl rounded-card border border-hair bg-card/80 p-6 shadow-lift backdrop-blur">
+          {/* the brand motif — the curve of your day, in a soft glowing glass card */}
+          <motion.div style={{ y: waveY }} className="mt-16 w-full">
+            <Reveal delay={0.5} direction="scale">
+              <div className="relative mx-auto max-w-2xl rounded-card border border-hair bg-card/70 p-6 shadow-lift backdrop-blur-md">
+                <div
+                  aria-hidden
+                  className="absolute -inset-3 -z-10 rounded-[34px] bg-gradient-to-r from-accent/25 via-pink-500/15 to-peach/25 blur-2xl"
+                />
                 <AnimatedWave width={640} height={200} className="h-[180px] w-full" />
                 <div className="mt-3 flex justify-between px-2 text-xs text-muted">
                   <span>Morning</span>
@@ -223,8 +198,8 @@ function LandingHome() {
                   <span>Night</span>
                 </div>
               </div>
-            </div>
-          )}
+            </Reveal>
+          </motion.div>
         </motion.div>
 
         {/* scroll cue */}
@@ -384,13 +359,8 @@ function LandingHome() {
       </Section>
 
       {/* ───────────────────── Final CTA ──────────────────────── */}
-      <section ref={ctaRef} className="relative overflow-hidden px-6 py-32">
-        <Aurora />
-        {!reduce && ctaInView && (
-          <div aria-hidden className="pointer-events-none absolute inset-0 z-[1]">
-            <FloatingOrbs className="h-full w-full" />
-          </div>
-        )}
+      <section className="relative overflow-hidden px-6 py-32">
+        <VibrantAurora intensity={0.8} />
         <FloatingParticles count={14} />
         <div className="relative z-10 mx-auto max-w-2xl text-center">
           <Reveal direction="scale">
