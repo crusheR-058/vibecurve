@@ -12,13 +12,37 @@ export interface Member {
   ambient?: boolean;
 }
 
+export type MessageKind = "text" | "sticker" | "gif" | "voice";
+
 export interface Message {
   id: string;
   roomId: string;
   userId: string;
   emoji: string;
+  kind: MessageKind;
+  /** the words, for kind "text"; "" for media */
   text: string;
+  /** sticker/gif: id into the curated pack (lib/stickers) */
+  stickerId?: string;
+  /** voice: clip length in seconds */
+  duration?: number;
+  /** voice: audio mime type (e.g. "audio/webm;codecs=opus") */
+  mime?: string;
   ts: number;
+}
+
+/**
+ * What a client may post to a room. The store stamps id/ts and routes the
+ * kind-specific bits. Voice audio is carried here as base64 but stored apart
+ * from the message (and never echoed back through the room poll).
+ */
+export interface MessageInput {
+  kind: MessageKind;
+  text?: string;
+  stickerId?: string;
+  audio?: string;
+  mime?: string;
+  duration?: number;
 }
 
 export interface RoomState {

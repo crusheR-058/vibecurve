@@ -3,9 +3,11 @@ import type {
   MatchResult,
   Member,
   Message,
+  MessageInput,
   Profile,
   RoomState,
 } from "./types";
+import { safeAudioMime } from "./voice";
 import {
   MATCH_THRESHOLD,
   blendedMatchPercent,
@@ -45,6 +47,7 @@ interface DB {
   ambientCurves: Map<string, CurvePoints>; // roomId|userId -> curve (for honest match%)
   profiles: Map<string, Profile>; // key: userId — permanent (never reaped)
   roomAff: Map<string, Set<string>>; // roomId -> affinity keys it's discoverable by
+  audio: Map<string, { audio: string; mime: string }>; // roomId|msgId -> voice blob (kept apart from the poll)
 }
 
 const g = globalThis as unknown as { __vibecurve?: DB };
@@ -56,6 +59,7 @@ const db: DB =
     ambientCurves: new Map(),
     profiles: new Map(),
     roomAff: new Map(),
+    audio: new Map(),
   });
 
 const ROOM_CAP = 5;
@@ -115,6 +119,7 @@ function seedAmbient(room: RoomState, userPoints: CurvePoints) {
         roomId: room.roomId,
         userId,
         emoji: a.emoji,
+        kind: "text",
         text: line,
         ts: Date.now() + delay,
       });
@@ -138,6 +143,7 @@ function maybeAmbientReply(room: RoomState) {
     roomId: room.roomId,
     userId: who.userId,
     emoji: who.emoji,
+    kind: "text",
     text: line,
     ts: Date.now() + 2600 + Math.floor(Math.random() * 2400),
   });
@@ -317,23 +323,39 @@ function postMessageMem(
   roomId: string,
   userId: string,
   emoji: string,
-  text: string,
+  input: MessageInput,
 ): Message | null {
   const room = db.rooms.get(roomId);
   if (!room) return null;
-  const clean = text.trim().slice(0, 500);
-  if (!clean) return null;
-  const msg: Message = {
-    id: uid("msg"),
-    roomId,
-    userId,
-    emoji,
-    text: clean,
-    ts: Date.now(),
-  };
+  const base = { id: uid("msg"), roomId, userId, emoji, ts: Date.now() };
+
+  let msg: Message;
+  if (input.kind === "sticker" || input.kind === "gif") {
+    if (!input.stickerId) return null;
+    msg = { ...base, kind: input.kind, text: "", stickerId: input.stickerId };
+  } else if (input.kind === "voice") {
+    if (!input.audio) return null;
+    const duration = Math.min(31, Math.max(1, Math.round(input.duration ?? 0)));
+    const mime = safeAudioMime(input.mime);
+    msg = { ...base, kind: "voice", text: "", duration, mime };
+    // keep the clip out of room.messages so the 1.2s poll never re-ships it
+    db.audio.set(`${roomId}|${msg.id}`, { audio: input.audio, mime });
+  } else {
+    const clean = (input.text ?? "").trim().slice(0, 500);
+    if (!clean) return null;
+    msg = { ...base, kind: "text", text: clean };
+  }
+
   room.messages.push(msg);
   maybeAmbientReply(room);
   return msg;
+}
+
+function getMessageMediaMem(
+  roomId: string,
+  msgId: string,
+): { audio: string; mime: string } | null {
+  return db.audio.get(`${roomId}|${msgId}`) ?? null;
 }
 
 // ── Dispatch: real DynamoDB when configured, in-memory otherwise ─────────────
@@ -358,11 +380,22 @@ export async function postMessage(
   roomId: string,
   userId: string,
   emoji: string,
-  text: string,
+  input: MessageInput,
 ): Promise<Message | null> {
   return ddbConfigured
-    ? ddb.postMessage(roomId, userId, emoji, text)
-    : postMessageMem(roomId, userId, emoji, text);
+    ? ddb.postMessage(roomId, userId, emoji, input)
+    : postMessageMem(roomId, userId, emoji, input);
+}
+
+// Voice clips live apart from the message (and outside getRoom) so the poll
+// stays light; the player fetches them once, on demand.
+export async function getMessageMedia(
+  roomId: string,
+  msgId: string,
+): Promise<{ audio: string; mime: string } | null> {
+  return ddbConfigured
+    ? ddb.getMessageMedia(roomId, msgId)
+    : getMessageMediaMem(roomId, msgId);
 }
 
 // ── permanent profile ───────────────────────────────────────────────────────

@@ -4,9 +4,40 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import CountdownRing from "@/components/ui/CountdownRing";
 import { toast } from "@/components/ui/Toast";
-import type { Member, Message, RoomState } from "@/lib/types";
+import StickerArt from "@/components/room/StickerArt";
+import MediaTray from "@/components/room/MediaTray";
+import VoicePlayer from "@/components/room/VoicePlayer";
+import { useVoiceRecorder, type VoiceResult } from "@/components/room/useVoiceRecorder";
+import { getSticker } from "@/lib/stickers";
+import { MAX_AUDIO_B64 } from "@/lib/voice";
+import type { Member, Message, MessageInput, RoomState } from "@/lib/types";
 
-const QUICK_EMOJI = ["💜", "🫶", "🌙", "🍀", "🥹", "✨", "🌊", "☕", "😮‍💨", "🌿"];
+// optimistic messages carry a local blob URL so a voice note plays instantly,
+// before the server round-trip makes it fetchable from the media route
+type ChatMessage = Message & { localUrl?: string };
+
+function fmt(s: number): string {
+  const m = Math.floor(s / 60);
+  const x = Math.floor(s % 60);
+  return `${m}:${String(x).padStart(2, "0")}`;
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+// match an optimistic message to its real twin so we can drop the placeholder
+function keyOf(m: Message): string {
+  if (m.kind === "text") return `t:${m.userId}:${m.text}`;
+  if (m.kind === "voice") return `v:${m.userId}:${m.duration}`;
+  return `s:${m.userId}:${m.stickerId}`;
+}
 
 export default function ParallelRoom({
   roomId,
@@ -23,10 +54,12 @@ export default function ParallelRoom({
 }) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [text, setText] = useState("");
-  const [optimistic, setOptimistic] = useState<Message[]>([]);
-  const [showPicker, setShowPicker] = useState(false);
+  const [optimistic, setOptimistic] = useState<ChatMessage[]>([]);
+  const [trayOpen, setTrayOpen] = useState(false);
   const [othersTyping, setOthersTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const localUrlsRef = useRef<string[]>([]);
+  const rec = useVoiceRecorder(30);
 
   const poll = useCallback(async () => {
     try {
@@ -34,9 +67,16 @@ export default function ParallelRoom({
       if (!res.ok) return;
       const data: RoomState = await res.json();
       setRoom(data);
-      setOptimistic((opt) =>
-        opt.filter((o) => !data.messages.some((m) => m.userId === userId && m.text === o.text)),
-      );
+      setOptimistic((opt) => {
+        const kept = opt.filter(
+          (o) => !data.messages.some((m) => m.userId === userId && keyOf(m) === keyOf(o)),
+        );
+        // free blob URLs for placeholders the server has now confirmed
+        opt.forEach((o) => {
+          if (!kept.includes(o) && o.localUrl) URL.revokeObjectURL(o.localUrl);
+        });
+        return kept;
+      });
     } catch {
       /* keep last state */
     }
@@ -48,41 +88,94 @@ export default function ParallelRoom({
     return () => clearInterval(id);
   }, [poll]);
 
-  const messages = [...(room?.messages ?? []), ...optimistic];
+  // release any outstanding blob URLs when leaving the room
+  useEffect(() => () => localUrlsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
+
+  const messages = [...(room?.messages ?? []), ...optimistic] as ChatMessage[];
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, othersTyping]);
 
-  const send = async () => {
-    const value = text.trim();
-    if (!value) return;
+  const sendMessage = useCallback(
+    async (input: MessageInput, localUrl?: string) => {
+      const temp: ChatMessage = {
+        id: `tmp_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
+        roomId,
+        userId,
+        emoji,
+        kind: input.kind,
+        text: input.text ?? "",
+        stickerId: input.stickerId,
+        duration: input.duration,
+        mime: input.mime,
+        ts: Date.now(),
+        localUrl,
+      };
+      setOptimistic((o) => [...o, temp]);
+      // others "notice" you
+      setOthersTyping(true);
+      setTimeout(() => setOthersTyping(false), 2400);
+      try {
+        await fetch(`/api/room/${roomId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, emoji, ...input }),
+        });
+        poll();
+      } catch {
+        toast("Couldn't send that — check your connection", "⚠️");
+      }
+    },
+    [roomId, userId, emoji, poll],
+  );
+
+  const sendText = () => {
+    const v = text.trim();
+    if (!v) return;
     setText("");
-    setShowPicker(false);
-    const temp: Message = {
-      id: `tmp_${Date.now()}`,
-      roomId,
-      userId,
-      emoji,
-      text: value,
-      ts: Date.now(),
-    };
-    setOptimistic((o) => [...o, temp]);
-    // others "notice" you
-    setOthersTyping(true);
-    setTimeout(() => setOthersTyping(false), 2400);
-    try {
-      await fetch(`/api/room/${roomId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, emoji, text: value }),
-      });
-      poll();
-    } catch {
-      toast("Couldn't send that — check your connection", "⚠️");
-    }
+    setTrayOpen(false);
+    sendMessage({ kind: "text", text: v });
   };
+
+  const sendSticker = (id: string) => {
+    const s = getSticker(id);
+    if (!s) return;
+    setTrayOpen(false);
+    sendMessage({ kind: s.kind, stickerId: id });
+  };
+
+  const finishVoice = useCallback(
+    async (r: VoiceResult) => {
+      let audio: string;
+      try {
+        audio = await blobToBase64(r.blob);
+      } catch {
+        toast("Couldn't process that note", "🎤");
+        return;
+      }
+      if (audio.length > MAX_AUDIO_B64) {
+        toast("That note's a touch long — keep it under 30s", "🎤");
+        return;
+      }
+      const localUrl = URL.createObjectURL(r.blob);
+      localUrlsRef.current.push(localUrl);
+      sendMessage({ kind: "voice", audio, mime: r.mime, duration: r.duration }, localUrl);
+    },
+    [sendMessage],
+  );
+
+  const onMic = useCallback(async () => {
+    if (rec.recording) {
+      const r = await rec.stop();
+      if (r) finishVoice(r);
+    } else {
+      setTrayOpen(false);
+      const ok = await rec.start();
+      if (!ok) toast("Mic unavailable — allow access to send a voice note", "🎤");
+    }
+  }, [rec, finishVoice]);
 
   const members: Member[] = room?.members ?? [{ userId, emoji, joinedAt: Date.now() }];
   const others = members.filter((m) => m.userId !== userId);
@@ -102,9 +195,7 @@ export default function ParallelRoom({
             {matchPercent}% parallel · {members.length} here tonight
           </p>
         </div>
-        {room && (
-          <CountdownRing expiresAt={room.expiresAt} onExpire={onBurn} size={58} />
-        )}
+        {room && <CountdownRing expiresAt={room.expiresAt} onExpire={onBurn} size={58} />}
       </motion.header>
 
       {/* member orbs */}
@@ -116,9 +207,7 @@ export default function ParallelRoom({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: i * 0.06, type: "spring", stiffness: 320, damping: 18 }}
             className={`grid h-9 w-9 place-items-center rounded-full text-lg shadow-soft ${
-              m.userId === userId
-                ? "bg-accent-light ring-2 ring-accent"
-                : "bg-card border border-hair"
+              m.userId === userId ? "bg-accent-light ring-2 ring-accent" : "bg-card border border-hair"
             }`}
             title={m.userId === userId ? "you" : undefined}
           >
@@ -148,15 +237,34 @@ export default function ParallelRoom({
                 <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-hair bg-card text-sm shadow-soft">
                   {m.emoji}
                 </div>
-                <div
-                  className={`max-w-[76%] rounded-card px-4 py-2.5 text-[15px] leading-relaxed shadow-soft ${
-                    mine
-                      ? "rounded-br-md bg-accent text-white"
-                      : "rounded-bl-md border border-hair bg-card text-ink"
-                  }`}
-                >
-                  {m.text}
-                </div>
+
+                {m.kind === "text" && (
+                  <div
+                    className={`max-w-[76%] rounded-card px-4 py-2.5 text-[15px] leading-relaxed shadow-soft ${
+                      mine
+                        ? "rounded-br-md bg-accent text-white"
+                        : "rounded-bl-md border border-hair bg-card text-ink"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                )}
+
+                {(m.kind === "sticker" || m.kind === "gif") && m.stickerId && (
+                  <div className="px-1 py-1">
+                    <StickerArt id={m.stickerId} size={m.kind === "gif" ? 112 : 96} />
+                  </div>
+                )}
+
+                {m.kind === "voice" && (
+                  <div className="max-w-[80%]">
+                    <VoicePlayer
+                      mine={mine}
+                      duration={m.duration ?? 0}
+                      src={m.localUrl ?? `/api/room/${roomId}/media?m=${encodeURIComponent(m.id)}`}
+                    />
+                  </div>
+                )}
               </motion.div>
             );
           })}
@@ -191,52 +299,82 @@ export default function ParallelRoom({
       {/* composer */}
       <div className="relative pb-5 pt-2">
         <AnimatePresence>
-          {showPicker && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              className="absolute bottom-[72px] left-0 flex flex-wrap gap-1 rounded-sheet border border-hair bg-card p-2 shadow-lift"
-            >
-              {QUICK_EMOJI.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setText((t) => t + e)}
-                  className="grid h-9 w-9 place-items-center rounded-full text-lg transition hover:bg-accent-light/60"
-                >
-                  {e}
-                </button>
-              ))}
-            </motion.div>
+          {trayOpen && !rec.recording && (
+            <MediaTray onEmoji={(e) => setText((t) => t + e)} onSticker={sendSticker} />
           )}
         </AnimatePresence>
 
-        <div className="flex items-center gap-2 rounded-sheet border border-hair bg-card p-2 shadow-soft">
-          <button
-            onClick={() => setShowPicker((s) => !s)}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xl transition hover:bg-accent-light/60"
-            aria-label="emoji"
-          >
-            😊
-          </button>
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="say something gentle…"
-            maxLength={500}
-            className="flex-1 bg-transparent px-1 text-[15px] text-ink outline-none placeholder:text-muted/70"
-          />
-          <motion.button
-            onClick={send}
-            whileTap={{ scale: 0.9 }}
-            disabled={!text.trim()}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent text-white shadow-glow transition disabled:opacity-30"
-            aria-label="send"
-          >
-            ↑
-          </motion.button>
-        </div>
+        {rec.recording ? (
+          <div className="flex items-center gap-3 rounded-sheet border border-accent/40 bg-card p-2.5 shadow-soft">
+            <button
+              onClick={rec.cancel}
+              aria-label="cancel recording"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition hover:bg-hair/60"
+            >
+              ✕
+            </button>
+            <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+            <span className="shrink-0 text-sm tabular-nums text-ink">{fmt(rec.elapsed)}</span>
+            <div className="flex flex-1 items-center justify-center gap-[3px] overflow-hidden">
+              {Array.from({ length: 28 }).map((_, i) => (
+                <motion.span
+                  key={i}
+                  className="w-[3px] rounded-full bg-accent/70"
+                  animate={{ height: [5, 15, 5] }}
+                  transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05, ease: "easeInOut" }}
+                />
+              ))}
+            </div>
+            <span className="shrink-0 text-[11px] text-muted">/ 0:30</span>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={onMic}
+              aria-label="send voice note"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-white shadow-glow"
+            >
+              ↑
+            </motion.button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-sheet border border-hair bg-card p-2 shadow-soft">
+            <button
+              onClick={() => setTrayOpen((o) => !o)}
+              aria-label="stickers and gifs"
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xl transition hover:bg-accent-light/60 ${
+                trayOpen ? "bg-accent-light/70" : ""
+              }`}
+            >
+              😊
+            </button>
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendText()}
+              placeholder="say something gentle…"
+              maxLength={500}
+              className="flex-1 bg-transparent px-1 text-[15px] text-ink outline-none placeholder:text-muted/70"
+            />
+            {rec.supported && (
+              <button
+                onClick={onMic}
+                aria-label="record voice note"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xl transition hover:bg-accent-light/60"
+              >
+                🎤
+              </button>
+            )}
+            <motion.button
+              onClick={sendText}
+              whileTap={{ scale: 0.9 }}
+              disabled={!text.trim()}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent text-white shadow-glow transition disabled:opacity-30"
+              aria-label="send"
+            >
+              ↑
+            </motion.button>
+          </div>
+        )}
+
         <button
           onClick={onBurn}
           className="mt-3 block w-full text-center text-xs text-muted/80 transition hover:text-accent"

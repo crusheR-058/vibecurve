@@ -13,7 +13,17 @@ import {
   similarity,
 } from "./curve";
 import { midnightTtlSeconds, nextMidnight, today } from "./time";
-import type { CurvePoints, MatchResult, Member, Message, Profile, RoomState } from "./types";
+import type {
+  CurvePoints,
+  MatchResult,
+  Member,
+  Message,
+  MessageInput,
+  MessageKind,
+  Profile,
+  RoomState,
+} from "./types";
+import { safeAudioMime } from "./voice";
 
 /**
  * DynamoDB single-table implementation (playbook §10.1). Mirrors lib/store.ts's
@@ -375,7 +385,11 @@ export async function getRoom(roomId: string): Promise<RoomState | null> {
       roomId,
       userId: i.userId as string,
       emoji: i.emoji as string,
-      text: i.text as string,
+      kind: (i.kind as MessageKind) ?? "text",
+      text: (i.text as string) ?? "",
+      stickerId: i.stickerId as string | undefined,
+      duration: i.duration as number | undefined,
+      mime: i.mime as string | undefined,
       ts: i.ts as number,
     }))
     .filter((m) => m.ts <= now)
@@ -395,25 +409,58 @@ export async function postMessage(
   roomId: string,
   userId: string,
   emoji: string,
-  text: string,
+  input: MessageInput,
 ): Promise<Message | null> {
-  const clean = text.trim().slice(0, 500);
-  if (!clean) return null;
   const d = doc();
   const ttl = midnightTtlSeconds();
   const ts = Date.now();
   const sk = `MSG#${ts}#${userId}`;
+  const base = { PK: `ROOM#${roomId}`, SK: sk, userId, emoji, ts, ttl };
 
-  await d.send(
-    new PutCommand({
-      TableName: TABLE,
-      Item: { PK: `ROOM#${roomId}`, SK: sk, userId, emoji, text: clean, ts, ttl },
-    }),
-  );
+  let item: Record<string, unknown>;
+  let msg: Message;
+  if (input.kind === "sticker" || input.kind === "gif") {
+    if (!input.stickerId) return null;
+    item = { ...base, kind: input.kind, text: "", stickerId: input.stickerId };
+    msg = { id: sk, roomId, userId, emoji, kind: input.kind, text: "", stickerId: input.stickerId, ts };
+  } else if (input.kind === "voice") {
+    if (!input.audio) return null;
+    const duration = Math.min(31, Math.max(1, Math.round(input.duration ?? 0)));
+    const mime = safeAudioMime(input.mime);
+    // the clip lives under its own partition so getRoom's Query never reads it
+    await d.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: { PK: `MSGAUDIO#${roomId}`, SK: sk, audio: input.audio, mime, ttl },
+      }),
+    );
+    item = { ...base, kind: "voice", text: "", duration, mime };
+    msg = { id: sk, roomId, userId, emoji, kind: "voice", text: "", duration, mime, ts };
+  } else {
+    const clean = (input.text ?? "").trim().slice(0, 500);
+    if (!clean) return null;
+    item = { ...base, kind: "text", text: clean };
+    msg = { id: sk, roomId, userId, emoji, kind: "text", text: clean, ts };
+  }
 
+  await d.send(new PutCommand({ TableName: TABLE, Item: item }));
   await maybeAmbientReply(roomId, ttl);
+  return msg;
+}
 
-  return { id: sk, roomId, userId, emoji, text: clean, ts };
+// Fetch a voice clip by message id (its SK). Lives apart from the room so the
+// poll stays light; returned binary is served by the media route.
+export async function getMessageMedia(
+  roomId: string,
+  msgId: string,
+): Promise<{ audio: string; mime: string } | null> {
+  const d = doc();
+  const res = await d.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `MSGAUDIO#${roomId}`, SK: msgId } }),
+  );
+  const it = res.Item;
+  if (!it || !it.audio) return null;
+  return { audio: it.audio as string, mime: safeAudioMime(it.mime) };
 }
 
 // ── permanent profile (no TTL — survives logout and midnight) ───────────────
@@ -499,6 +546,7 @@ async function seedAmbient(
           SK: `MSG#${ts}#${auid}`,
           userId: auid,
           emoji: a.emoji,
+          kind: "text",
           text: a.lines[0],
           ts,
           ttl,
@@ -540,6 +588,7 @@ async function maybeAmbientReply(roomId: string, ttl: number): Promise<void> {
         SK: `MSG#${ts}#${who.userId as string}`,
         userId: who.userId,
         emoji: who.emoji,
+        kind: "text",
         text: line,
         ts,
         ttl,
