@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * A custom cursor: a precise dot + a lagging ring that swells and brightens over
- * anything interactive (links, buttons, [data-cursor]). mix-blend-difference
- * keeps it legible on any backdrop. Disabled on touch + reduced-motion.
+ * anything interactive. Desktop only — on touch / reduced-motion it renders
+ * NOTHING (returns null), so no frozen ring shows up on phones.
  */
 export default function Cursor() {
+  const [enabled, setEnabled] = useState(false);
   const dot = useRef<HTMLDivElement>(null);
   const ring = useRef<HTMLDivElement>(null);
 
+  // decide once on mount whether this is a precise-pointer device
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const fine = window.matchMedia("(pointer: fine)").matches;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!fine || reduce) return;
+    if (fine && !reduce) setEnabled(true);
+  }, []);
 
+  useEffect(() => {
+    if (!enabled) return;
     const pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const ringPos = { ...pos };
     let hovering = false;
@@ -54,7 +58,9 @@ export default function Cursor() {
       window.removeEventListener("pointerover", onOver);
       document.documentElement.classList.remove("cursor-none");
     };
-  }, []);
+  }, [enabled]);
+
+  if (!enabled) return null;
 
   return (
     <>
