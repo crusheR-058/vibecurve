@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { motion } from "framer-motion";
 import AnimatedWave from "@/components/ui/AnimatedWave";
 import FloatingParticles from "@/components/ui/FloatingParticles";
+import VibrantAurora from "@/components/ui/VibrantAurora";
 
 function GoogleMark() {
   return (
@@ -18,7 +19,8 @@ function GoogleMark() {
 
 export default function Login() {
   return (
-    <div className="relative grid min-h-[100dvh] place-items-center px-6">
+    <div className="relative grid min-h-[100dvh] place-items-center overflow-hidden px-6">
+      <VibrantAurora intensity={0.5} />
       <FloatingParticles count={16} />
       <motion.div
         initial={{ opacity: 0, y: 24 }}

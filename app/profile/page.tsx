@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import ProfileDashboard from "@/components/scenes/ProfileDashboard";
+import VibrantAurora from "@/components/ui/VibrantAurora";
 import type { Profile } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -43,7 +44,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="relative min-h-[100dvh] bg-canvas">
+    <main className="relative min-h-[100dvh] overflow-hidden bg-canvas">
+      <VibrantAurora intensity={0.45} />
       <ProfileDashboard profile={profile} onBack={() => router.push("/")} />
     </main>
   );

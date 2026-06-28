@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import MagneticButton from "@/components/ui/MagneticButton";
+import VibrantAurora from "@/components/ui/VibrantAurora";
 import { DOMAINS, childrenAt, type Domain, type FlashNode } from "@/lib/domains";
 import { deriveEmoji } from "@/lib/profileEmoji";
 import type { DomainSelection, Profile } from "@/lib/types";
@@ -102,6 +103,9 @@ export default function Walkthrough({
 
   return (
     <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-2xl flex-col items-center justify-center px-6 py-16">
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <VibrantAurora intensity={0.4} />
+      </div>
       {/* progress */}
       <div className="absolute top-8 flex gap-1.5">
         {Array.from({ length: total }).map((_, idx) => (

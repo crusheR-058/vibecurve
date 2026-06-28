@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import Aurora from "@/components/ui/Aurora";
+import VibrantAurora from "@/components/ui/VibrantAurora";
 import CursorGlow from "@/components/ui/CursorGlow";
 import Logo from "@/components/ui/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -109,7 +110,7 @@ export default function VibeCheckPage() {
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-canvas">
-      {!immersive && <Aurora intensity={0.7} />}
+      {!immersive && <VibrantAurora intensity={0.6} />}
       <CursorGlow />
 
       <AnimatePresence>
