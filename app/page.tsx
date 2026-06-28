@@ -48,10 +48,10 @@ export default function Home() {
   if (status === "unauthenticated") return <Login />;
   if (!profile || profile.domains.length === 0)
     return <Walkthrough onComplete={(p) => setProfile(p)} />;
-  return <LandingHome />;
+  return <LandingHome profile={profile} />;
 }
 
-function LandingHome() {
+function LandingHome({ profile }: { profile: Profile }) {
   const router = useRouter();
   const go = () => router.push("/app");
   const [loaded, setLoaded] = useState(false);
@@ -61,7 +61,7 @@ function LandingHome() {
       <Cursor />
       <AnimatePresence>{!loaded && <Loader onDone={() => setLoaded(true)} />}</AnimatePresence>
       <SmoothScroll>
-        <ImmersiveJourney onEnter={go} />
+        <ImmersiveJourney onEnter={go} profile={profile} />
       </SmoothScroll>
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { signOut } from "next-auth/react";
 import MagneticButton from "@/components/ui/MagneticButton";
 import type { Profile } from "@/lib/types";
 
@@ -62,10 +63,16 @@ export default function ProfileDashboard({
         <p className="mt-8 text-center text-xs text-muted">
           This profile is permanent — it stays with your account, even after midnight.
         </p>
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <MagneticButton variant="ghost" onClick={onBack}>
             ← Back
           </MagneticButton>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="rounded-button border border-hair bg-card px-5 py-2.5 text-sm font-medium text-muted shadow-soft transition hover:border-red-400/40 hover:text-red-400"
+          >
+            Sign out
+          </button>
         </div>
       </motion.div>
     </div>

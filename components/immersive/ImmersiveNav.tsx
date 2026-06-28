@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
+import type { Profile } from "@/lib/types";
 
 /**
  * Glass, scroll-aware top nav. Floats transparent over the hero, then condenses
  * into a frosted pill once you scroll, staying legible over the lighter sections
  * below. White text + dark glass = readable on any world.
  */
-export default function ImmersiveNav({ onEnter }: { onEnter?: () => void }) {
+export default function ImmersiveNav({ profile }: { profile: Profile }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -36,13 +37,17 @@ export default function ImmersiveNav({ onEnter }: { onEnter?: () => void }) {
           an emotional journey
         </span>
 
-        <button
+        <Link
+          href="/profile"
           data-cursor
-          onClick={onEnter}
-          className="rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-sm text-white backdrop-blur transition hover:border-white/50"
+          aria-label="your profile"
+          className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 py-1.5 pl-1.5 pr-4 text-sm text-white backdrop-blur transition hover:border-white/50"
         >
-          Enter
-        </button>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-base">
+            {profile.emoji}
+          </span>
+          <span className="hidden max-w-[140px] truncate capitalize sm:block">{profile.words}</span>
+        </Link>
       </div>
     </header>
   );

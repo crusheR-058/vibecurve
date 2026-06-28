@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import ImmersiveNav from "./ImmersiveNav";
 import WorldSection from "./WorldSection";
 import { WORLDS } from "@/lib/worlds";
+import type { Profile } from "@/lib/types";
 
 const JourneyCanvas = dynamic(() => import("./JourneyCanvas"), { ssr: false });
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -14,7 +15,13 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  * behind, with the hero, the emotional worlds, and the CTA scrolling over it.
  * `onEnter` preserves the existing CTA behavior (→ /app).
  */
-export default function ImmersiveJourney({ onEnter }: { onEnter: () => void }) {
+export default function ImmersiveJourney({
+  onEnter,
+  profile,
+}: {
+  onEnter: () => void;
+  profile: Profile;
+}) {
   return (
     <main className="relative bg-[#07060c] text-white">
       {/* the persistent emotional universe */}
@@ -27,7 +34,7 @@ export default function ImmersiveJourney({ onEnter }: { onEnter: () => void }) {
       />
 
       <div className="relative z-10">
-        <ImmersiveNav onEnter={onEnter} />
+        <ImmersiveNav profile={profile} />
 
         {/* ── Hero ── */}
         <section className="relative flex min-h-[100svh] flex-col items-center justify-center px-6 text-center">
