@@ -10,7 +10,9 @@ import {
   useMotionValue,
   useSpring,
   useReducedMotion,
+  useInView,
 } from "framer-motion";
+import dynamic from "next/dynamic";
 import Nav from "@/components/landing/Nav";
 import FAQ from "@/components/landing/FAQ";
 import Footer from "@/components/landing/Footer";
@@ -27,6 +29,10 @@ import TiltCard from "@/components/ui/TiltCard";
 import Login from "@/components/scenes/Login";
 import Walkthrough from "@/components/scenes/Walkthrough";
 import type { Profile } from "@/lib/types";
+
+// 3D scenes are client-only and lazy — they never block first paint or SSR.
+const WaveField = dynamic(() => import("@/components/three/WaveField"), { ssr: false });
+const FloatingOrbs = dynamic(() => import("@/components/three/FloatingOrbs"), { ssr: false });
 
 const HEADLINE_EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -83,17 +89,20 @@ function LandingHome() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
   const textY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -130]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 0.96]);
-  const waveY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -40]);
+  const fieldY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 140]);
   const auroraY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 90]);
   const cueOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0]);
+
+  // mount 3D scenes only while their section is near the viewport (no off-screen GPU)
+  const ctaRef = useRef<HTMLElement>(null);
+  const ctaInView = useInView(ctaRef, { margin: "200px" });
+  const heroInView = useInView(heroRef, { margin: "100px" });
 
   // ── Hero cursor parallax ──────────────────────────────────────────────────
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const smx = useSpring(mx, { stiffness: 120, damping: 20 });
   const smy = useSpring(my, { stiffness: 120, damping: 20 });
-  const illTx = useTransform(smx, [-0.5, 0.5], [-22, 22]);
-  const illTy = useTransform(smy, [-0.5, 0.5], [-14, 14]);
   const badgeTx = useTransform(smx, [-0.5, 0.5], [12, -12]);
 
   const onHeroMove = (e: React.MouseEvent) => {
@@ -117,9 +126,29 @@ function LandingHome() {
         className="relative grid min-h-[100dvh] place-items-center px-6 pt-24"
       >
         <motion.div style={{ y: auroraY }} className="absolute inset-0">
-          <Aurora />
+          <Aurora intensity={0.85} />
         </motion.div>
-        <FloatingParticles count={16} />
+
+        {/* 3D wave field — a living "sea of day-curves". Lazy + client-only. */}
+        {!reduce && heroInView && (
+          <motion.div
+            aria-hidden
+            style={{ y: fieldY, opacity: heroOpacity }}
+            className="pointer-events-none absolute inset-0 z-[1]"
+          >
+            <WaveField className="h-full w-full" />
+          </motion.div>
+        )}
+
+        {/* soft scrim so the headline stays legible over the point field */}
+        {!reduce && heroInView && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(58%_46%_at_50%_44%,rgb(var(--canvas)/0.62),transparent_72%)]"
+          />
+        )}
+
+        <FloatingParticles count={14} />
 
         <motion.div
           style={{ opacity: heroOpacity }}
@@ -142,7 +171,11 @@ function LandingHome() {
               {["Your day has a shape.", "Maybe someone else’s does too."].map((line, i) => (
                 <span key={i} className="block overflow-hidden pb-1.5">
                   <motion.span
-                    className={`block ${i === 1 ? "italic text-accent" : ""}`}
+                    className={`block ${
+                      i === 1
+                        ? "italic bg-gradient-to-r from-accent via-[#c4b5fd] to-peach bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-pan"
+                        : ""
+                    }`}
                     initial={{ y: "115%" }}
                     animate={{ y: 0 }}
                     transition={{ duration: 0.9, delay: 0.12 + i * 0.14, ease: HEADLINE_EASE }}
@@ -178,22 +211,20 @@ function LandingHome() {
             </Reveal>
           </motion.div>
 
-          {/* parallax illustration */}
-          <motion.div style={{ y: waveY, x: illTx }} className="mt-16 w-full">
-            <motion.div style={{ y: illTy }}>
-              <Reveal delay={0.6} direction="scale">
-                <div className="relative mx-auto max-w-2xl rounded-card border border-hair bg-card/80 p-6 shadow-lift backdrop-blur">
-                  <AnimatedWave width={640} height={200} className="h-[180px] w-full" />
-                  <div className="mt-3 flex justify-between px-2 text-xs text-muted">
-                    <span>Morning</span>
-                    <span>Afternoon</span>
-                    <span>Evening</span>
-                    <span>Night</span>
-                  </div>
+          {/* reduced-motion users get the brand wave as a still card instead of WebGL */}
+          {reduce && (
+            <div className="mt-16 w-full">
+              <div className="relative mx-auto max-w-2xl rounded-card border border-hair bg-card/80 p-6 shadow-lift backdrop-blur">
+                <AnimatedWave width={640} height={200} className="h-[180px] w-full" />
+                <div className="mt-3 flex justify-between px-2 text-xs text-muted">
+                  <span>Morning</span>
+                  <span>Afternoon</span>
+                  <span>Evening</span>
+                  <span>Night</span>
                 </div>
-              </Reveal>
-            </motion.div>
-          </motion.div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* scroll cue */}
@@ -353,8 +384,13 @@ function LandingHome() {
       </Section>
 
       {/* ───────────────────── Final CTA ──────────────────────── */}
-      <section className="relative px-6 py-32">
+      <section ref={ctaRef} className="relative overflow-hidden px-6 py-32">
         <Aurora />
+        {!reduce && ctaInView && (
+          <div aria-hidden className="pointer-events-none absolute inset-0 z-[1]">
+            <FloatingOrbs className="h-full w-full" />
+          </div>
+        )}
         <FloatingParticles count={14} />
         <div className="relative z-10 mx-auto max-w-2xl text-center">
           <Reveal direction="scale">
