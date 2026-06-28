@@ -7,6 +7,8 @@
 // component listed in cfg.componentSrcMap must be re-exported below so it lands
 // on window.VibeCurve.<Name>. Keep this list in sync with componentSrcMap.
 
+// Must be first: defines process.env before any component module body runs.
+import "./shims/provide-process";
 import * as React from "react";
 
 // ── Preview theme surface (cfg.provider) ─────────────────────────────────────
@@ -49,7 +51,7 @@ export { default as ScrollProgress } from "@/components/ui/ScrollProgress";
 export { default as ThemeToggle } from "@/components/ui/ThemeToggle";
 export { default as TiltCard } from "@/components/ui/TiltCard";
 export { default as VibrantAurora } from "@/components/ui/VibrantAurora";
-export { Toaster } from "@/components/ui/Toast";
+export { Toaster, toast } from "@/components/ui/Toast";
 
 // ── Immersive / journey ──────────────────────────────────────────────────────
 export { default as Cursor } from "@/components/immersive/Cursor";

@@ -77,15 +77,29 @@ export default function ImmersiveJourney({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 2.2, duration: 1 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2"
+            className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center"
+            aria-hidden
           >
-            <div className="flex h-9 w-5 justify-center rounded-full border border-white/30 pt-1.5">
-              <motion.span
-                className="h-1.5 w-1 rounded-full bg-white/70"
-                animate={{ y: [0, 7, 0], opacity: [1, 0.2, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              />
-            </div>
+            {[0, 1].map((i) => (
+              <motion.svg
+                key={i}
+                width="26"
+                height="13"
+                viewBox="0 0 26 13"
+                fill="none"
+                className="-mb-[7px]"
+                animate={{ opacity: [0.12, 0.9, 0.12], y: [-2, 3, -2] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.22, ease: "easeInOut" }}
+              >
+                <path
+                  d="M2 2 L13 11 L24 2"
+                  stroke="white"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </motion.svg>
+            ))}
           </motion.div>
         </section>
 

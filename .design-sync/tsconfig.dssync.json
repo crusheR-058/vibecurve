@@ -6,7 +6,8 @@
       "@/*": ["./*"],
       "next/link": ["./.design-sync/shims/next-link.tsx"],
       "next/dynamic": ["./.design-sync/shims/next-dynamic.ts"],
-      "next-auth/react": ["./.design-sync/shims/next-auth-react.ts"]
+      "next-auth/react": ["./.design-sync/shims/next-auth-react.ts"],
+      "scheduler": ["./node_modules/scheduler/index.js"]
     }
   }
 }
