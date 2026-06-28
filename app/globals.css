@@ -125,6 +125,12 @@
   }
 }
 
+/* Immersive custom cursor: hide the native pointer while it's active. */
+html.cursor-none,
+html.cursor-none * {
+  cursor: none !important;
+}
+
 /* Respect reduced-motion: still usable, just calm and still. Framer Motion is
    additionally told via <MotionConfig reducedMotion="user"> in providers. */
 @media (prefers-reduced-motion: reduce) {

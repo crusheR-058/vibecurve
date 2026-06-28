@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   motion,
+  AnimatePresence,
   useScroll,
   useTransform,
   useMotionValue,
   useSpring,
   useReducedMotion,
 } from "framer-motion";
+import Cursor from "@/components/immersive/Cursor";
+import Loader from "@/components/immersive/Loader";
+import SmoothScroll from "@/components/immersive/SmoothScroll";
+import ImmersiveNav from "@/components/immersive/ImmersiveNav";
+import HeroWorld from "@/components/immersive/HeroWorld";
 import Nav from "@/components/landing/Nav";
 import FAQ from "@/components/landing/FAQ";
 import Footer from "@/components/landing/Footer";
@@ -74,6 +80,7 @@ function LandingHome() {
   const router = useRouter();
   const go = () => router.push("/app");
   const reduce = useReducedMotion();
+  const [loaded, setLoaded] = useState(false);
 
   // ── Hero scroll choreography ──────────────────────────────────────────────
   const heroRef = useRef<HTMLElement>(null);
@@ -104,118 +111,19 @@ function LandingHome() {
   };
 
   return (
-    <main className="relative overflow-hidden bg-canvas">
-      <ScrollProgress />
-      <CursorGlow />
-      <Nav />
+    <>
+      <Cursor />
+      <AnimatePresence>
+        {!loaded && <Loader onDone={() => setLoaded(true)} />}
+      </AnimatePresence>
+      <SmoothScroll>
+        <main className="relative overflow-hidden bg-canvas">
+          <ScrollProgress />
+          <ImmersiveNav onEnter={go} />
 
-      {/* ───────────────────────── Hero ───────────────────────── */}
-      <section
-        ref={heroRef}
-        onMouseMove={onHeroMove}
-        className="relative grid min-h-[100dvh] place-items-center px-6 pt-24"
-      >
-        <motion.div style={{ y: auroraY }} className="absolute inset-0">
-          <VibrantAurora intensity={0.9} />
-        </motion.div>
-
-        <FloatingParticles count={16} />
-
-        <motion.div
-          style={{ opacity: heroOpacity }}
-          className="relative z-10 mx-auto flex max-w-3xl flex-col items-center text-center"
-        >
-          <motion.div style={{ y: textY, scale: heroScale }} className="flex flex-col items-center">
-            <motion.span
-              style={{ x: badgeTx }}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: HEADLINE_EASE }}
-              className="mb-6 inline-flex items-center gap-2 rounded-full border border-hair bg-card/70 px-4 py-1.5 text-xs text-muted backdrop-blur"
-            >
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-peach" />
-              The anti-flex network · gone by midnight
-            </motion.span>
-
-            {/* mask-reveal headline */}
-            <h1 className="font-serif-display text-[clamp(40px,8vw,76px)] leading-[1.05] text-ink">
-              {["Your day has a shape.", "Maybe someone else’s does too."].map((line, i) => (
-                <span key={i} className="block overflow-hidden pb-1.5">
-                  <motion.span
-                    className={`block ${
-                      i === 1
-                        ? "italic bg-gradient-to-r from-accent via-[#c4b5fd] to-peach bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-pan"
-                        : ""
-                    }`}
-                    initial={{ y: "115%" }}
-                    animate={{ y: 0 }}
-                    transition={{ duration: 0.9, delay: 0.12 + i * 0.14, ease: HEADLINE_EASE }}
-                  >
-                    {line}
-                  </motion.span>
-                </span>
-              ))}
-            </h1>
-
-            <Reveal delay={0.4}>
-              <p className="mx-auto mt-7 max-w-xl text-[17px] leading-relaxed text-muted">
-                A quieter way to meet people who truly understand how today felt. Draw the curve of
-                your day, match with people who felt it too, in rooms that vanish at midnight.
-              </p>
-            </Reveal>
-
-            <Reveal delay={0.52}>
-              <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-                <MagneticButton onClick={go}>
-                  Draw My Day
-                  <span aria-hidden>→</span>
-                </MagneticButton>
-                <MagneticButton
-                  variant="ghost"
-                  onClick={() =>
-                    document.getElementById("how")?.scrollIntoView({ behavior: "smooth" })
-                  }
-                >
-                  Watch Demo
-                </MagneticButton>
-              </div>
-            </Reveal>
-          </motion.div>
-
-          {/* the brand motif — the curve of your day, in a soft glowing glass card */}
-          <motion.div style={{ y: waveY }} className="mt-16 w-full">
-            <Reveal delay={0.5} direction="scale">
-              <div className="relative mx-auto max-w-2xl rounded-card border border-hair bg-card/70 p-6 shadow-lift backdrop-blur-md">
-                <div
-                  aria-hidden
-                  className="absolute -inset-3 -z-10 rounded-[34px] bg-gradient-to-r from-accent/25 via-pink-500/15 to-peach/25 blur-2xl"
-                />
-                <AnimatedWave width={640} height={200} className="h-[180px] w-full" />
-                <div className="mt-3 flex justify-between px-2 text-xs text-muted">
-                  <span>Morning</span>
-                  <span>Afternoon</span>
-                  <span>Evening</span>
-                  <span>Night</span>
-                </div>
-              </div>
-            </Reveal>
-          </motion.div>
-        </motion.div>
-
-        {/* scroll cue */}
-        <motion.div
-          style={{ opacity: cueOpacity }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        >
-          <div className="flex h-9 w-5 justify-center rounded-full border-2 border-muted/40 pt-1.5">
-            <motion.span
-              className="h-1.5 w-1 rounded-full bg-muted/70"
-              animate={{ y: [0, 7, 0], opacity: [1, 0.2, 1] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </div>
-        </motion.div>
-      </section>
+          {/* ── Phase 1 · Hero world: a self-drawing glowing curve in a dark volume ── */}
+          <HeroWorld onEnter={go} />
+          <div aria-hidden className="h-24 w-full bg-gradient-to-b from-[#07060c] to-canvas" />
 
       {/* ───────────────────── Marquee strip ──────────────────── */}
       <div className="relative z-10 border-y border-hair bg-card/40 py-5 backdrop-blur">
@@ -382,7 +290,9 @@ function LandingHome() {
       </section>
 
       <Footer />
-    </main>
+        </main>
+      </SmoothScroll>
+    </>
   );
 }
 
