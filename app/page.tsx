@@ -31,7 +31,7 @@ import Walkthrough from "@/components/scenes/Walkthrough";
 import type { Profile } from "@/lib/types";
 
 // 3D scenes are client-only and lazy — they never block first paint or SSR.
-const WaveField = dynamic(() => import("@/components/three/WaveField"), { ssr: false });
+const HeroScene = dynamic(() => import("@/components/three/LavaBlobs"), { ssr: false });
 const FloatingOrbs = dynamic(() => import("@/components/three/FloatingOrbs"), { ssr: false });
 
 const HEADLINE_EASE = [0.22, 1, 0.36, 1] as const;
@@ -129,14 +129,14 @@ function LandingHome() {
           <Aurora intensity={0.85} />
         </motion.div>
 
-        {/* 3D wave field — a living "sea of day-curves". Lazy + client-only. */}
+        {/* liquid lava-lamp blobs — vibrant, gooey, full-bleed. Lazy + client-only. */}
         {!reduce && heroInView && (
           <motion.div
             aria-hidden
             style={{ y: fieldY, opacity: heroOpacity }}
             className="pointer-events-none absolute inset-0 z-[1]"
           >
-            <WaveField className="h-full w-full" />
+            <HeroScene className="h-full w-full" />
           </motion.div>
         )}
 

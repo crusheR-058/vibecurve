@@ -7,7 +7,7 @@ import * as THREE from "three";
 // Calm 3D depth: translucent brand-tinted orbs drifting at varied distances,
 // with a soft pointer parallax. Mounted only while its section is in view.
 
-const COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#fdba74"];
+const COLORS = ["#8b5cf6", "#ec4899", "#38bdf8", "#fdba74", "#a78bfa"];
 
 interface OrbData {
   x: number;
