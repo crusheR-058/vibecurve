@@ -23,6 +23,7 @@ export default function ImmersiveJourney({
   onEnter: () => void;
   profile: Profile;
 }) {
+  const year = new Date().getFullYear();
   return (
     <main className="relative bg-[#07060c] text-white">
       {/* the persistent emotional universe */}
@@ -148,9 +149,13 @@ export default function ImmersiveJourney({
           </motion.div>
         </section>
 
-        <footer className="relative z-10 border-t border-white/10 px-6 py-10 text-center text-xs text-white/40">
-          <p>VibeCurve — presence over permanence · gone by midnight</p>
-          <p className="mt-2">No followers · no likes · no profiles</p>
+        <footer className="relative z-10 border-t border-white/10 px-6 py-9">
+          <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
+            <span className="font-serif-display text-base text-white/80">VibeCurve</span>
+            <span className="text-xs text-white/40">
+              © {year} VibeCurve. All rights reserved.
+            </span>
+          </div>
         </footer>
       </div>
     </main>
