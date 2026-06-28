@@ -36,7 +36,6 @@ for (let x = 0; x <= W; x += RUNG_STEP) {
 export default function MobileDNA() {
   const [mobile, setMobile] = useState(false);
   const clipRect = useRef<SVGRectElement>(null);
-  const fork = useRef<SVGCircleElement>(null);
 
   useEffect(() => {
     if (window.matchMedia("(pointer: coarse)").matches) setMobile(true);
@@ -46,9 +45,7 @@ export default function MobileDNA() {
     if (!mobile) return;
     const apply = (raw: number) => {
       const p = Math.min(1, Math.max(0, raw));
-      const x = p * W;
-      clipRect.current?.setAttribute("width", String(x));
-      fork.current?.setAttribute("cx", String(x));
+      clipRect.current?.setAttribute("width", String(p * W));
     };
     apply(useJourney.getState().progress);
     return useJourney.subscribe((s) => apply(s.progress));
@@ -107,16 +104,7 @@ export default function MobileDNA() {
             strokeLinecap="round"
             style={{ filter: "drop-shadow(0 0 5px rgba(139,92,246,0.7))" }}
           />
-          {RUNGS.map((r, i) => (
-            <g key={`n${i}`} fill="#fff">
-              <circle cx={r.x} cy={r.y1} r="1.3" />
-              <circle cx={r.x} cy={r.y2} r="1.3" />
-            </g>
-          ))}
         </g>
-
-        {/* the replication fork riding the reveal edge */}
-        <circle ref={fork} cx="0" cy={MIDY} r="3" fill="#fff" style={{ filter: "drop-shadow(0 0 6px #fff)" }} />
       </svg>
     </div>
   );
