@@ -6,7 +6,13 @@ import type {
   Profile,
   RoomState,
 } from "./types";
-import { MATCH_THRESHOLD, matchPercent, signatureOf, similarity } from "./curve";
+import {
+  MATCH_THRESHOLD,
+  blendedMatchPercent,
+  matchPercent,
+  signatureOf,
+  similarity,
+} from "./curve";
 import { nextMidnight, today } from "./time";
 import { ddbConfigured } from "./ddb";
 import * as ddb from "./store-ddb";
@@ -139,12 +145,32 @@ function maybeAmbientReply(room: RoomState) {
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-function affinityPercentMem(depth: number): number {
-  if (!depth) return 74;
-  return Math.min(98, 70 + depth * 6);
+// Best day-shape similarity (0..1) between `points` and the souls already in a
+// room — real members first (their curves live in db.curves), falling back to
+// the room's ambient companions when you're the first real soul. Excludes self.
+function bestRoomSimilarity(points: CurvePoints, room: RoomState, selfId: string): number {
+  let best = 0;
+  let sawReal = false;
+  for (const m of room.members) {
+    if (m.userId === selfId || m.ambient) continue;
+    const other = db.curves.get(m.userId)?.points;
+    if (!other) continue;
+    sawReal = true;
+    best = Math.max(best, similarity(points, other));
+  }
+  if (sawReal) return best;
+  for (const m of room.members) {
+    if (!m.ambient) continue;
+    const other = db.ambientCurves.get(`${room.roomId}|${m.userId}`);
+    if (other) best = Math.max(best, similarity(points, other));
+  }
+  return best;
 }
 
-// Affinity matching (in-memory mirror of store-ddb): deepest shared branch first.
+// Affinity matching (in-memory mirror of store-ddb): interests choose the
+// candidate pool (deepest shared branch first); the drawn curve then chooses the
+// room within it, so you land with the soul who shares your interest AND felt
+// today most like you. The shown % is an honest day-shape similarity.
 function submitByAffinityMem(
   userId: string,
   emoji: string,
@@ -152,28 +178,47 @@ function submitByAffinityMem(
   affKeys: string[],
 ): MatchResult {
   const now = Date.now();
+  const date = today();
+  // persist my curve so this room and future souls can compare day-shapes
+  db.curves.set(userId, {
+    userId,
+    emoji,
+    points,
+    signature: signatureOf(points),
+    date,
+    roomId: undefined,
+  });
+
   let room: RoomState | undefined;
   let matchedDepth = 0;
 
   for (const key of affKeys) {
-    room = [...db.rooms.values()].find(
+    const candidates = [...db.rooms.values()].filter(
       (r) =>
         r.expiresAt > now &&
         r.members.filter((m) => !m.ambient).length < ROOM_CAP &&
         !r.members.some((m) => m.userId === userId) &&
         (db.roomAff.get(r.roomId)?.has(key) ?? false),
     );
-    if (room) {
-      matchedDepth = key.split(">").length;
-      break;
+    if (!candidates.length) continue;
+    // the curve breaks the tie within this interest pool
+    let bestSim = -1;
+    for (const r of candidates) {
+      const s = bestRoomSimilarity(points, r, userId);
+      if (s > bestSim) {
+        bestSim = s;
+        room = r;
+      }
     }
+    matchedDepth = key.split(">").length;
+    break;
   }
 
   if (!room) {
     const roomId = uid("room");
     room = {
       roomId,
-      date: today(),
+      date,
       signature: "",
       members: [],
       messages: [],
@@ -188,11 +233,17 @@ function submitByAffinityMem(
   affKeys.forEach((k) => keys.add(k));
   db.roomAff.set(room.roomId, keys);
 
+  // honest day-shape closeness to whoever is already here (real, else ambient),
+  // measured before I join so I'm not compared against myself
+  const sim = bestRoomSimilarity(points, room, userId);
+
   room.members.push({ userId, emoji, joinedAt: now });
+  const rec = db.curves.get(userId);
+  if (rec) rec.roomId = room.roomId;
 
   return {
     roomId: room.roomId,
-    matchPercent: affinityPercentMem(matchedDepth),
+    matchPercent: blendedMatchPercent(sim, matchedDepth),
     signature: "",
     you: { userId, emoji, joinedAt: now },
   };
@@ -253,7 +304,7 @@ function getRoomMem(roomId: string): RoomState | null {
   const now = Date.now();
   return {
     ...room,
-    members: room.members,
+    members: [...room.members], // copy so callers can't mutate the live store
     // only reveal messages whose (possibly future) timestamp has arrived
     messages: room.messages
       .filter((m) => m.ts <= now)

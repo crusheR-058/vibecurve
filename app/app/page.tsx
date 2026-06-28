@@ -98,6 +98,12 @@ export default function VibeCheckPage() {
     [userId],
   );
 
+  // stable so Matching's reveal timer isn't reset by unrelated parent re-renders
+  const handleResolved = useCallback(() => {
+    setScene("room");
+    toast("You found your parallel — say hi", "🫂");
+  }, []);
+
   const immersive = scene === "room" || scene === "burn";
   const showBar = scene === "draw" || scene === "matching";
 
@@ -164,10 +170,7 @@ export default function VibeCheckPage() {
                 points={points}
                 ready={ready}
                 resolvedPercent={match?.matchPercent ?? null}
-                onResolved={() => {
-                  setScene("room");
-                  toast("You found your parallel — say hi", "🫂");
-                }}
+                onResolved={handleResolved}
               />
             </motion.div>
           )}

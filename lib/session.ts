@@ -56,7 +56,12 @@ export function rememberCurve(points: CurvePoints) {
 export function recallCurve(): CurvePoints | null {
   if (typeof window === "undefined") return null;
   const raw = sessionStorage.getItem("vc:points");
-  return raw ? (JSON.parse(raw) as CurvePoints) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CurvePoints;
+  } catch {
+    return null;
+  }
 }
 
 export function rememberMatch(roomId: string, percent: number) {

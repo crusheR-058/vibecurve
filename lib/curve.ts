@@ -32,6 +32,23 @@ export function matchPercent(a: CurvePoints, b: CurvePoints): number {
   return Math.round(similarity(a, b) * 100);
 }
 
+/** A warm floor so a near-empty demo room never reads as cold. */
+export const MATCH_FLOOR = 72;
+
+/**
+ * The number shown on a match. The drawn curve is the headline signal — an
+ * honest day-shape similarity (`curveSim` in [0,1]) to the closest soul already
+ * in the room — lifted a little by how deep a shared interest branch runs
+ * (`depth` 0 = a fresh room, no real soul yet). Kept in [MATCH_FLOOR, 98] so it
+ * is always warm but never a flat 100. This is what makes "people who felt it
+ * too" honest: interests choose the room, the curve sets the closeness.
+ */
+export function blendedMatchPercent(curveSim: number, depth: number): number {
+  const base = Math.max(0, Math.min(1, curveSim)) * 100;
+  const lift = Math.min(Math.max(0, depth) * 2, 8);
+  return Math.max(MATCH_FLOOR, Math.min(98, Math.round(base * 0.92 + lift)));
+}
+
 /** A short human read of the day's overall shape, for warm copy. */
 export function describeCurve(points: CurvePoints): string {
   const avg = points.reduce((s, v) => s + v, 0) / points.length;

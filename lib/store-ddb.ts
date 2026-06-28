@@ -5,7 +5,13 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { doc, TABLE } from "./ddb";
-import { MATCH_THRESHOLD, matchPercent, signatureOf, similarity } from "./curve";
+import {
+  MATCH_THRESHOLD,
+  blendedMatchPercent,
+  matchPercent,
+  signatureOf,
+  similarity,
+} from "./curve";
 import { midnightTtlSeconds, nextMidnight, today } from "./time";
 import type { CurvePoints, MatchResult, Member, Message, Profile, RoomState } from "./types";
 
@@ -56,9 +62,35 @@ interface AnyItem {
 
 // ── public API (matches lib/store.ts signatures, async) ─────────────────────
 
-function affinityPercent(depth: number): number {
-  if (!depth) return 74; // first soul in a fresh room
-  return Math.min(98, 70 + depth * 6); // deeper shared branch → higher %
+// Best day-shape similarity (0..1) between `points` and a room's member curves —
+// real souls first, falling back to the ambient companions when you're first in.
+function bestSimilarity(points: CurvePoints, memberItems: AnyItem[]): number {
+  let best = 0;
+  let sawReal = false;
+  for (const it of memberItems) {
+    if (it.ambient) continue;
+    const p = it.points as CurvePoints | undefined;
+    if (!p) continue;
+    sawReal = true;
+    best = Math.max(best, similarity(points, p));
+  }
+  if (sawReal) return best;
+  for (const it of memberItems) {
+    if (!it.ambient) continue;
+    const p = it.points as CurvePoints | undefined;
+    if (p) best = Math.max(best, similarity(points, p));
+  }
+  return best;
+}
+
+function bestSimilarityOf(points: CurvePoints, pool: CurvePoints[]): number {
+  let best = 0;
+  for (const p of pool) best = Math.max(best, similarity(points, p));
+  return best;
+}
+
+function isCapacityRace(e: unknown): boolean {
+  return e instanceof Error && e.name === "ConditionalCheckFailedException";
 }
 
 export async function submitCurve(
@@ -71,8 +103,10 @@ export async function submitCurve(
   return submitBySignature(userId, emoji, points);
 }
 
-// Match by shared interest branches — deepest key first ("reverse order"), so
-// the most-specific overlap rooms you with the most similar people.
+// Affinity matching: interests choose the candidate pool (deepest shared branch
+// first), then the drawn curve chooses the room within it — you land with the
+// soul who shares your interest AND felt today most like you. The shown % is an
+// honest day-shape similarity, lifted slightly by how deep the shared branch runs.
 async function submitByAffinity(
   userId: string,
   emoji: string,
@@ -87,6 +121,8 @@ async function submitByAffinity(
 
   let roomId: string | undefined;
   let matchedDepth = 0;
+  let bestSim = 0;
+
   for (const key of affKeys) {
     const res = await d.send(
       new QueryCommand({
@@ -97,43 +133,80 @@ async function submitByAffinity(
       }),
     );
     const rids = [...new Set((res.Items ?? []).map((it) => it.roomId as string).filter(Boolean))];
+
+    // the curve breaks the tie within this interest pool: pick the open room
+    // whose souls felt today most like you
+    let chosen: string | undefined;
+    let chosenSim = -1;
     for (const rid of rids) {
-      const meta = await d.send(
-        new GetCommand({ TableName: TABLE, Key: { PK: `ROOM#${rid}`, SK: "META" } }),
+      const room = await d.send(
+        new QueryCommand({
+          TableName: TABLE,
+          KeyConditionExpression: "PK = :pk",
+          ExpressionAttributeValues: { ":pk": `ROOM#${rid}` },
+        }),
       );
-      const m = meta.Item;
-      if (m && (m.expiresAt as number) > now && (m.memberCount as number) < ROOM_CAP) {
-        roomId = rid;
-        matchedDepth = key.split(">").length;
-        break;
+      const items = (room.Items ?? []) as AnyItem[];
+      const meta = items.find((i) => i.SK === "META");
+      if (!meta || (meta.expiresAt as number) <= now || (meta.memberCount as number) >= ROOM_CAP) {
+        continue;
+      }
+      const memberItems = items.filter((i) => i.SK.startsWith("MEMBER#"));
+      if (memberItems.some((i) => i.userId === userId)) continue; // already here — don't re-join
+      const sim = bestSimilarity(points, memberItems);
+      if (sim > chosenSim) {
+        chosenSim = sim;
+        chosen = rid;
       }
     }
-    if (roomId) break;
+    if (chosen) {
+      roomId = chosen;
+      bestSim = Math.max(0, chosenSim);
+      matchedDepth = key.split(">").length;
+      break;
+    }
   }
 
-  if (!roomId) {
-    roomId = uid("room");
+  // open a fresh room seeded with close ambient company; count me immediately
+  const openFresh = async (): Promise<string> => {
+    const rid = uid("room");
     await d.send(
       new PutCommand({
         TableName: TABLE,
-        Item: { PK: `ROOM#${roomId}`, SK: "META", date, signature: "", memberCount: 0, expiresAt, ttl },
+        Item: { PK: `ROOM#${rid}`, SK: "META", date, signature: "", memberCount: 1, expiresAt, ttl },
       }),
     );
-    await seedAmbient(roomId, points, ttl);
+    const ambient = await seedAmbient(rid, points, ttl);
+    bestSim = bestSimilarityOf(points, ambient);
+    matchedDepth = 0;
+    return rid;
+  };
+
+  if (!roomId) {
+    roomId = await openFresh();
+  } else {
+    // atomic join: bump the count only if the room still has space — this closes
+    // the check-then-write race where two souls fill the last seat at once
+    try {
+      await d.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `ROOM#${roomId}`, SK: "META" },
+          UpdateExpression: "ADD memberCount :one",
+          ConditionExpression: "attribute_not_exists(memberCount) OR memberCount < :cap",
+          ExpressionAttributeValues: { ":one": 1, ":cap": ROOM_CAP },
+        }),
+      );
+    } catch (e) {
+      if (!isCapacityRace(e)) throw e;
+      roomId = await openFresh(); // it filled the instant we joined — no one is turned away
+    }
   }
 
   await d.send(
     new PutCommand({
       TableName: TABLE,
       Item: { PK: `ROOM#${roomId}`, SK: `MEMBER#${userId}`, userId, emoji, joinedAt: now, points, ttl },
-    }),
-  );
-  await d.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: `ROOM#${roomId}`, SK: "META" },
-      UpdateExpression: "ADD memberCount :one",
-      ExpressionAttributeValues: { ":one": 1 },
     }),
   );
 
@@ -156,7 +229,7 @@ async function submitByAffinity(
 
   return {
     roomId,
-    matchPercent: affinityPercent(matchedDepth),
+    matchPercent: blendedMatchPercent(bestSim, matchedDepth),
     signature: "",
     you: { userId, emoji, joinedAt: now },
   };

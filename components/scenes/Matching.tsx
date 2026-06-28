@@ -13,6 +13,14 @@ const MESSAGES = [
   "Some days rhyme. Listening for yours…",
 ];
 
+// Keep the reveal copy honest with the number: the curve sets the closeness, so
+// a high % really did have the same shape, while a lower one only rhymed.
+function matchSubtitle(percent: number): string {
+  if (percent >= 90) return "Your days had nearly the same shape.";
+  if (percent >= 80) return "Your days rose and fell together.";
+  return "Different days that still found each other.";
+}
+
 export default function Matching({
   points,
   onResolved,
@@ -106,7 +114,7 @@ export default function Matching({
               {resolvedPercent}%
             </motion.div>
             <p className="mt-2 text-[15px] text-muted">
-              Your days had nearly the same shape.
+              {matchSubtitle(resolvedPercent ?? 0)}
             </p>
             <p className="mt-1 text-sm text-accent">Opening your room…</p>
           </motion.div>
