@@ -32,13 +32,9 @@ export default function ImmersiveNav({ onEnter }: { onEnter?: () => void }) {
           <Logo />
         </Link>
 
-        <nav className="hidden items-center gap-7 text-sm text-white/65 md:flex">
-          {["how", "why", "privacy", "faq"].map((id) => (
-            <a key={id} data-cursor href={`#${id}`} className="capitalize transition-colors hover:text-white">
-              {id === "faq" ? "FAQ" : id}
-            </a>
-          ))}
-        </nav>
+        <span className="hidden text-xs uppercase tracking-[0.28em] text-white/45 md:block">
+          an emotional journey
+        </span>
 
         <button
           data-cursor

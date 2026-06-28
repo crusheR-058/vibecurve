@@ -1,0 +1,7 @@
+{
+  "projectId": "b6f93290-bef1-412b-a0e0-791c5e8aaf99",
+  "shape": "package",
+  "pkg": "vibecurve",
+  "globalName": "VibeCurve",
+  "tsconfig": "tsconfig.json"
+}
