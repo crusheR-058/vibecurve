@@ -14,24 +14,17 @@ const MIDY = 28;
 const AMP = 12;
 const PERIOD = 96;
 const STEP = 6;
-const RUNG_STEP = 14;
 
-function strand(sign: 1 | -1): string {
-  let d = `M 0 ${(MIDY + sign * AMP * Math.sin(0)).toFixed(2)}`;
+function buildStrand(): string {
+  let d = `M 0 ${MIDY.toFixed(2)}`;
   for (let x = STEP; x <= W; x += STEP) {
-    const y = MIDY + sign * AMP * Math.sin((x / PERIOD) * Math.PI * 2);
+    const y = MIDY + AMP * Math.sin((x / PERIOD) * Math.PI * 2);
     d += ` L ${x} ${y.toFixed(2)}`;
   }
   return d;
 }
 
-const STRAND_A = strand(1);
-const STRAND_B = strand(-1);
-const RUNGS: { x: number; y1: number; y2: number }[] = [];
-for (let x = 0; x <= W; x += RUNG_STEP) {
-  const s = AMP * Math.sin((x / PERIOD) * Math.PI * 2);
-  RUNGS.push({ x, y1: MIDY + s, y2: MIDY - s });
-}
+const STRAND = buildStrand();
 
 export default function MobileDNA() {
   const [mobile, setMobile] = useState(false);
@@ -67,40 +60,18 @@ export default function MobileDNA() {
           </clipPath>
         </defs>
 
-        {/* faint full helix (what's still to come) */}
+        {/* faint full curve (what's still to come) */}
         <g opacity="0.12" stroke="white" fill="none">
-          <path d={STRAND_A} strokeWidth="1.4" />
-          <path d={STRAND_B} strokeWidth="1.4" />
+          <path d={STRAND} strokeWidth="1.4" />
         </g>
 
         {/* the part drawn so far */}
         <g clipPath="url(#dna-reveal)">
-          {RUNGS.map((r, i) => (
-            <line
-              key={i}
-              x1={r.x}
-              y1={r.y1}
-              x2={r.x}
-              y2={r.y2}
-              stroke="url(#dna-grad)"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              opacity="0.45"
-            />
-          ))}
           <path
-            d={STRAND_A}
+            d={STRAND}
             fill="none"
             stroke="url(#dna-grad)"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            style={{ filter: "drop-shadow(0 0 5px rgba(139,92,246,0.7))" }}
-          />
-          <path
-            d={STRAND_B}
-            fill="none"
-            stroke="url(#dna-grad)"
-            strokeWidth="2.4"
+            strokeWidth="2.6"
             strokeLinecap="round"
             style={{ filter: "drop-shadow(0 0 5px rgba(139,92,246,0.7))" }}
           />
