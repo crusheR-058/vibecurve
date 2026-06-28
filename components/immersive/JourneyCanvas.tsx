@@ -66,21 +66,28 @@ function Scene() {
   const particles = useRef<THREE.Group>(null);
   const reveal = useRef({ v: 0 });
   const { camera } = useThree();
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   const { coreGeo, glowGeo } = useMemo(() => {
+    // phones scale the whole curve right down so the full shape fits the narrow
+    // portrait viewport; desktop keeps the original full-size curve unchanged
+    const sx = isMobile ? 0.2 : 1;
+    const sy = isMobile ? 0.6 : 1;
     const pts = [
-      new THREE.Vector3(-7.2, -1.4, -2),
-      new THREE.Vector3(-3.6, 1.7, 0.4),
-      new THREE.Vector3(0, -1.3, 1.6),
-      new THREE.Vector3(3.7, 1.9, 0.2),
-      new THREE.Vector3(7.2, -0.5, -2),
+      new THREE.Vector3(-7.2 * sx, -1.4 * sy, -2 * sx),
+      new THREE.Vector3(-3.6 * sx, 1.7 * sy, 0.4 * sx),
+      new THREE.Vector3(0, -1.3 * sy, 1.6 * sx),
+      new THREE.Vector3(3.7 * sx, 1.9 * sy, 0.2 * sx),
+      new THREE.Vector3(7.2 * sx, -0.5 * sy, -2 * sx),
     ];
     const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.5);
+    const coreR = isMobile ? 0.032 : 0.05;
+    const glowR = isMobile ? 0.14 : 0.26;
     return {
-      coreGeo: new THREE.TubeGeometry(curve, 260, 0.05, 12, false),
-      glowGeo: new THREE.TubeGeometry(curve, 260, 0.26, 14, false),
+      coreGeo: new THREE.TubeGeometry(curve, 260, coreR, 12, false),
+      glowGeo: new THREE.TubeGeometry(curve, 260, glowR, 14, false),
     };
-  }, []);
+  }, [isMobile]);
 
   const make = (frag: string) =>
     new THREE.ShaderMaterial({
@@ -160,10 +167,11 @@ function Scene() {
       g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, -pointer.y * 0.06, 0.04);
     }
 
-    // ride the curve: gentle pan + parallax + breathing dolly
-    const camX = (prog - 0.5) * 3 + pointer.x * 0.8;
-    const camY = pointer.y * 0.5 + (prog - 0.5) * 0.7;
-    const camZ = 8.6 - Math.sin(prog * Math.PI) * 1.1;
+    // ride the curve: gentle pan + parallax + breathing dolly (eased on mobile
+    // so the smaller curve never pans out of the narrow viewport)
+    const camX = (prog - 0.5) * (isMobile ? 0.5 : 3) + pointer.x * 0.8;
+    const camY = pointer.y * 0.5 + (prog - 0.5) * (isMobile ? 0.25 : 0.7);
+    const camZ = (isMobile ? 9 : 8.6) - Math.sin(prog * Math.PI) * (isMobile ? 0.4 : 1.1);
     camera.position.x += (camX - camera.position.x) * 0.045;
     camera.position.y += (camY - camera.position.y) * 0.045;
     camera.position.z += (camZ - camera.position.z) * 0.045;
