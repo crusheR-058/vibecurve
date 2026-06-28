@@ -1,0 +1,123 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useJourney } from "@/lib/journeyStore";
+
+// Mobile-only: a DNA double-helix pinned to the bottom that draws itself left to
+// right as you scroll and lands fully formed at the end of the journey. Two
+// crossing sine strands + base-pair rungs; a faint track shows what's still to
+// come; a glowing fork rides the reveal edge. Renders nothing on desktop.
+
+const W = 480;
+const H = 56;
+const MIDY = 28;
+const AMP = 12;
+const PERIOD = 96;
+const STEP = 6;
+const RUNG_STEP = 14;
+
+function strand(sign: 1 | -1): string {
+  let d = `M 0 ${(MIDY + sign * AMP * Math.sin(0)).toFixed(2)}`;
+  for (let x = STEP; x <= W; x += STEP) {
+    const y = MIDY + sign * AMP * Math.sin((x / PERIOD) * Math.PI * 2);
+    d += ` L ${x} ${y.toFixed(2)}`;
+  }
+  return d;
+}
+
+const STRAND_A = strand(1);
+const STRAND_B = strand(-1);
+const RUNGS: { x: number; y1: number; y2: number }[] = [];
+for (let x = 0; x <= W; x += RUNG_STEP) {
+  const s = AMP * Math.sin((x / PERIOD) * Math.PI * 2);
+  RUNGS.push({ x, y1: MIDY + s, y2: MIDY - s });
+}
+
+export default function MobileDNA() {
+  const [mobile, setMobile] = useState(false);
+  const clipRect = useRef<SVGRectElement>(null);
+  const fork = useRef<SVGCircleElement>(null);
+
+  useEffect(() => {
+    if (window.matchMedia("(pointer: coarse)").matches) setMobile(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mobile) return;
+    const apply = (raw: number) => {
+      const p = Math.min(1, Math.max(0, raw));
+      const x = p * W;
+      clipRect.current?.setAttribute("width", String(x));
+      fork.current?.setAttribute("cx", String(x));
+    };
+    apply(useJourney.getState().progress);
+    return useJourney.subscribe((s) => apply(s.progress));
+  }, [mobile]);
+
+  if (!mobile) return null;
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] bg-gradient-to-t from-[#07060c]/85 to-transparent pb-[env(safe-area-inset-bottom)]">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block h-[54px] w-full" aria-hidden>
+        <defs>
+          <linearGradient id="dna-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="50%" stopColor="#8b5cf6" />
+            <stop offset="100%" stopColor="#fb7185" />
+          </linearGradient>
+          <clipPath id="dna-reveal">
+            <rect ref={clipRect} x="0" y="0" width="0" height={H} />
+          </clipPath>
+        </defs>
+
+        {/* faint full helix (what's still to come) */}
+        <g opacity="0.12" stroke="white" fill="none">
+          <path d={STRAND_A} strokeWidth="1.4" />
+          <path d={STRAND_B} strokeWidth="1.4" />
+        </g>
+
+        {/* the part drawn so far */}
+        <g clipPath="url(#dna-reveal)">
+          {RUNGS.map((r, i) => (
+            <line
+              key={i}
+              x1={r.x}
+              y1={r.y1}
+              x2={r.x}
+              y2={r.y2}
+              stroke="url(#dna-grad)"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              opacity="0.45"
+            />
+          ))}
+          <path
+            d={STRAND_A}
+            fill="none"
+            stroke="url(#dna-grad)"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            style={{ filter: "drop-shadow(0 0 5px rgba(139,92,246,0.7))" }}
+          />
+          <path
+            d={STRAND_B}
+            fill="none"
+            stroke="url(#dna-grad)"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            style={{ filter: "drop-shadow(0 0 5px rgba(139,92,246,0.7))" }}
+          />
+          {RUNGS.map((r, i) => (
+            <g key={`n${i}`} fill="#fff">
+              <circle cx={r.x} cy={r.y1} r="1.3" />
+              <circle cx={r.x} cy={r.y2} r="1.3" />
+            </g>
+          ))}
+        </g>
+
+        {/* the replication fork riding the reveal edge */}
+        <circle ref={fork} cx="0" cy={MIDY} r="3" fill="#fff" style={{ filter: "drop-shadow(0 0 6px #fff)" }} />
+      </svg>
+    </div>
+  );
+}
