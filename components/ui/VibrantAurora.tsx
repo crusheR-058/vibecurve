@@ -33,8 +33,8 @@ export default function VibrantAurora({ intensity = 1 }: { intensity?: number })
             width: b.s,
             height: b.s,
             background: b.c,
-            filter: "blur(95px)",
-            opacity: 0.5 * intensity,
+            filter: "blur(70px)",
+            opacity: 0.7 * intensity,
             left: b.from[0],
             top: b.from[1],
           }}

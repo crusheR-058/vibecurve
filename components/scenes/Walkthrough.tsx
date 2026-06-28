@@ -104,7 +104,7 @@ export default function Walkthrough({
   return (
     <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-2xl flex-col items-center justify-center px-6 py-16">
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <VibrantAurora intensity={0.4} />
+        <VibrantAurora intensity={0.65} />
       </div>
       {/* progress */}
       <div className="absolute top-8 flex gap-1.5">

@@ -118,6 +118,10 @@ function LandingHome() {
       </AnimatePresence>
       <SmoothScroll>
         <main className="relative overflow-hidden bg-canvas">
+          {/* vibrant color backdrop for the whole journey (the hero canvas sits opaque on top) */}
+          <div aria-hidden className="pointer-events-none fixed inset-0">
+            <VibrantAurora intensity={0.9} />
+          </div>
           <ScrollProgress />
           <ImmersiveNav onEnter={go} />
 

@@ -20,7 +20,7 @@ function GoogleMark() {
 export default function Login() {
   return (
     <div className="relative grid min-h-[100dvh] place-items-center overflow-hidden px-6">
-      <VibrantAurora intensity={0.5} />
+      <VibrantAurora intensity={0.85} />
       <FloatingParticles count={16} />
       <motion.div
         initial={{ opacity: 0, y: 24 }}

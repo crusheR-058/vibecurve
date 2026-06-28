@@ -110,7 +110,7 @@ export default function VibeCheckPage() {
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-canvas">
-      {!immersive && <VibrantAurora intensity={0.6} />}
+      {!immersive && <VibrantAurora intensity={0.85} />}
       <CursorGlow />
 
       <AnimatePresence>

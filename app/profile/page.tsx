@@ -45,7 +45,7 @@ export default function ProfilePage() {
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-canvas">
-      <VibrantAurora intensity={0.45} />
+      <VibrantAurora intensity={0.8} />
       <ProfileDashboard profile={profile} onBack={() => router.push("/")} />
     </main>
   );
