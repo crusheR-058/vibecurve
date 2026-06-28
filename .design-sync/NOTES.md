@@ -49,10 +49,49 @@ runs the **package shape** in a custom synth-entry configuration.
   `styles.css` stays faithful (light `:root` + `.dark`). `VibeCurveTheme` is NOT
   a real app provider — the app uses `SessionProvider` + `MotionConfig`.
 
+## Capturing / rendering: required harness patches (animation-heavy DS)
+VibeCurve uses framer-motion everywhere, including `whileInView` / `useInView`
+reveals and counters that only fire on IntersectionObserver and animate over
+time. In headless capture they otherwise screenshot blank / mid-animation. Two
+LOCAL patches to the staged `.ds-sync/` scripts fix this (re-apply after every
+re-stage — `cp -r` overwrites them):
+- `.ds-sync/package-capture.mjs`: in `settle()` add `await page.waitForTimeout(1400)`,
+  and after `page.clock.setFixedTime(...)` add `await page.emulateMedia({ reducedMotion: 'reduce' })`.
+- `.ds-sync/package-validate.mjs`: after `newPage(...)` add the same
+  `emulateMedia({ reducedMotion: 'reduce' })`, and after the per-preview
+  `page.goto(...networkidle)` add `await page.waitForTimeout(1400)`.
+Reduced motion makes framer apply end states instantly (matches the app's
+`<MotionConfig reducedMotion="user">`); the wait lets the IntersectionObserver
+fire. Render the previews with the system Chrome via
+`DS_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"` (no
+200MB Playwright chromium download needed — `npm i playwright` in `.ds-sync/`
+with `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`).
+
+## Preview authoring conventions (.design-sync/previews/<Name>.tsx)
+- Import components from `'vibecurve'` (shimmed to `window.VibeCurve`); import
+  data from `@/lib/*` (resolves via the dssync tsconfig).
+- **Colors / type / radii / shadows → brand token classes** (guaranteed in the
+  compiled CSS): `bg-canvas bg-card text-ink text-muted text-accent text-white
+  border-hair rounded-card rounded-button rounded-full shadow-soft shadow-lift
+  shadow-glow font-serif-display glass bg-accent-light bg-accent`.
+- **Layout / sizing (height, width, flex, padding, gap) → INLINE styles.** A
+  Tailwind utility used ONLY in a preview is not in the compiled CSS unless the
+  CSS is regenerated (step 1 now scans previews), so inline styles keep previews
+  self-contained and subagent-safe.
+- **Absolute/inset-0 effects** (Aurora, VibrantAurora, FloatingParticles,
+  CursorGlow, ScrollProgress): wrap in a sized `position:relative; overflow:hidden`
+  inline-styled frame, else they collapse to 0 height → floor card.
+- **In-view components** (Reveal, CountUp, anything `whileInView`/`useInView`):
+  center the content in a tall frame (inline `minHeight ~320, flex center`) so
+  the observer fires; the harness reduced-motion patch then settles them.
+- The dark theme surface (`VibeCurveTheme`, cfg.provider) is applied
+  automatically — don't re-wrap.
+
 ## Re-build / re-sync recipe (this repo)
-1. Regenerate the Tailwind CSS (component class usage may have changed):
-   `npx tailwindcss -c tailwind.config.ts -i .design-sync/assets/ds-input.css -o .design-sync/assets/ds-styles.css`
-2. Converter / driver: `--entry .design-sync/ds-entry.tsx --node-modules ./node_modules`.
+1. Regenerate the Tailwind CSS (scans app + components + previews):
+   `npx tailwindcss -c tailwind.config.ts --content "./app/**/*.{js,ts,jsx,tsx,mdx},./components/**/*.{js,ts,jsx,tsx,mdx},./.design-sync/previews/**/*.tsx" -i .design-sync/assets/ds-input.css -o .design-sync/assets/ds-styles.css`
+2. Re-apply the two harness patches above to the freshly-staged `.ds-sync/`.
+3. Converter / driver: `--entry .design-sync/ds-entry.tsx --node-modules ./node_modules`.
 
 ## Re-sync risks (watch list)
 - **Tailwind CSS is generated, not committed-as-truth.** If you forget step 1,
