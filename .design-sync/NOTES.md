@@ -94,9 +94,14 @@ with `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`).
 3. Converter / driver: `--entry .design-sync/ds-entry.tsx --node-modules ./node_modules`.
 
 ## Re-sync risks (watch list)
+- **The two harness patches are LOST on every re-stage** (`cp -r` from the
+  bundled skill overwrites `.ds-sync/package-capture.mjs` and
+  `package-validate.mjs`). Without them, every `whileInView`/`useInView`/counter
+  preview captures blank and grades fail spuriously. Re-apply them (see
+  "Capturing / rendering" above) before any capture/validate on a fresh stage.
 - **Tailwind CSS is generated, not committed-as-truth.** If you forget step 1,
-  newly-used utility classes will be missing from `styles.css` and those
-  components render unstyled. Always regenerate before the build.
+  newly-used utility classes (in components OR previews) will be missing from
+  `styles.css` and those render unstyled. Always regenerate before the build.
 - **Barrel ↔ componentSrcMap drift**: a component added to the repo won't sync
   until it's added to BOTH `.design-sync/ds-entry.tsx` and `cfg.componentSrcMap`.
 - **Fonts load remotely** (Google `@import`). If the headless render machine has

@@ -41,8 +41,8 @@ export default function ImmersiveJourney({
       <div className="relative z-10">
         <ImmersiveNav profile={profile} />
 
-        {/* ── Hero ── */}
-        <section className="relative flex min-h-[100svh] flex-col items-center justify-center px-6 text-center">
+        {/* ── Hero ── (mobile: sit the text up in the upper area; desktop: centered) */}
+        <section className="relative flex min-h-[100svh] flex-col items-center justify-start px-6 pt-[14vh] text-center md:justify-center md:pt-0">
           <motion.span
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
