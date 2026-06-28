@@ -186,9 +186,11 @@ function Scene() {
 }
 
 export default function JourneyCanvas() {
+  // lighter pixel budget on phones; desktop is unchanged
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   return (
     <Canvas
-      dpr={[1, 1.8]}
+      dpr={isMobile ? [1, 1.5] : [1, 1.8]}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       camera={{ position: [0, 0, 9], fov: 50 }}
     >
