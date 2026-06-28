@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import ImmersiveNav from "./ImmersiveNav";
 import WorldSection from "./WorldSection";
+import MobileScrollCurve from "./MobileScrollCurve";
 import { WORLDS } from "@/lib/worlds";
 import type { Profile } from "@/lib/types";
 
@@ -32,6 +33,9 @@ export default function ImmersiveJourney({
         aria-hidden
         className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(72%_60%_at_50%_50%,transparent,rgba(7,6,12,0.62))]"
       />
+
+      {/* mobile-only: brand curve at the bottom that completes as you scroll */}
+      <MobileScrollCurve />
 
       <div className="relative z-10">
         <ImmersiveNav profile={profile} />

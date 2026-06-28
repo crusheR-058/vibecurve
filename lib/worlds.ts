@@ -65,7 +65,7 @@ export const WORLDS: World[] = [
   {
     id: "connections",
     name: "Real Connections",
-    line: "And you realize — you were never the only one.",
+    line: "And you realize you were never the only one.",
     colors: ["#8b5cf6", "#ec4899", "#38bdf8"],
     accent: "#ec4899",
   },

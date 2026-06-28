@@ -1,0 +1,12 @@
+{
+  "comment": "design-sync build tsconfig. The converter's esbuild paths plugin reads compilerOptions.paths/baseUrl from THIS file directly (it does not follow `extends`), so the @/ alias and the preview shims are listed here in full. baseUrl is the repo root (one level up from .design-sync/).",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./*"],
+      "next/link": ["./.design-sync/shims/next-link.tsx"],
+      "next/dynamic": ["./.design-sync/shims/next-dynamic.ts"],
+      "next-auth/react": ["./.design-sync/shims/next-auth-react.ts"]
+    }
+  }
+}

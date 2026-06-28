@@ -1,0 +1,13 @@
+/* design-sync cssEntry source. Compiled by Tailwind (repo config, scanning
+   app/ + components/) into ds-styles.css, which the converter scrapes into the
+   shipped styles.css. Carries: the brand fonts (Inter + Instrument Serif, the
+   real next/font families, here loaded from Google so the bundle is self-
+   describing), the --font-* var bindings the app normally injects via next/font,
+   and globals.css (tokens for :root + .dark, base layer, custom utilities). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+@import "../../app/globals.css";
+
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-instrument-serif: 'Instrument Serif', Georgia, serif;
+}
