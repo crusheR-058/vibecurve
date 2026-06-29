@@ -28,7 +28,11 @@ export default function Loader({ onDone }: { onDone: () => void }) {
       transition={{ duration: 0.9, ease: EASE }}
     >
       <div className="flex flex-col items-center">
-        <svg width="240" height="44" viewBox="0 0 240 44" className="mb-6">
+        <svg
+          viewBox="0 0 240 44"
+          preserveAspectRatio="xMidYMid meet"
+          className="mb-6 h-auto w-[min(240px,62vw)]"
+        >
           <defs>
             <linearGradient id="ld-grad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#38bdf8" />
@@ -49,11 +53,11 @@ export default function Loader({ onDone }: { onDone: () => void }) {
           />
         </svg>
 
-        <div className="flex overflow-hidden">
+        <div className="flex h-[2.75rem] items-center overflow-hidden sm:h-[3.25rem]">
           {WORD.split("").map((c, i) => (
             <motion.span
               key={i}
-              className="font-serif-display text-3xl tracking-tight text-white sm:text-4xl"
+              className="font-serif-display text-3xl leading-none tracking-tight text-white sm:text-4xl"
               initial={{ y: "120%", opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.7 + i * 0.05, duration: 0.6, ease: EASE }}

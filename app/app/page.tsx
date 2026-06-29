@@ -110,7 +110,20 @@ export default function VibeCheckPage() {
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-canvas">
-      {!immersive && <VibrantAurora intensity={0.85} />}
+      <AnimatePresence>
+        {!immersive && (
+          <motion.div
+            key="aurora"
+            className="absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <VibrantAurora intensity={0.85} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <CursorGlow />
 
       <AnimatePresence>
@@ -132,15 +145,15 @@ export default function VibeCheckPage() {
         )}
       </AnimatePresence>
 
-      <div className="relative z-10">
-        <AnimatePresence mode="wait">
+      <div className="relative z-10 min-h-[100dvh]">
+        <AnimatePresence>
           {scene === "loading" && (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid min-h-[100dvh] place-items-center"
+              className="absolute inset-0 grid place-items-center"
             >
               <motion.div
                 animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
@@ -159,14 +172,14 @@ export default function VibeCheckPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              className="grid min-h-[100dvh] place-items-center py-24"
+              className="absolute inset-0 grid place-items-center py-24"
             >
               <DrawYourDay onSubmit={submitCurve} />
             </motion.div>
           )}
 
           {scene === "matching" && (
-            <motion.div key="matching" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="matching" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Matching
                 points={points}
                 ready={ready}
@@ -177,7 +190,7 @@ export default function VibeCheckPage() {
           )}
 
           {scene === "room" && match && (
-            <motion.div key="room" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="room" className="absolute inset-0" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
               <ParallelRoom
                 roomId={match.roomId}
                 userId={userId}
@@ -189,7 +202,7 @@ export default function VibeCheckPage() {
           )}
 
           {scene === "refresh" && profile && (
-            <motion.div key="refresh" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="refresh" className="absolute inset-0 overflow-y-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Walkthrough
                 mode="interests"
                 initialWords={profile.words}

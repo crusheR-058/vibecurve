@@ -301,7 +301,7 @@ export default function ParallelRoom({
       </div>
 
       {/* composer */}
-      <div className="relative pb-5 pt-2">
+      <div className="relative pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
         <AnimatePresence>
           {trayOpen && !rec.recording && (
             <MediaTray onEmoji={(e) => setText((t) => t + e)} onSticker={sendSticker} />
@@ -356,7 +356,7 @@ export default function ParallelRoom({
               onKeyDown={(e) => e.key === "Enter" && sendText()}
               placeholder="say something gentle…"
               maxLength={500}
-              className="flex-1 bg-transparent px-1 text-[15px] text-ink outline-none placeholder:text-muted/70"
+              className="min-w-0 flex-1 bg-transparent px-1 text-[15px] text-ink outline-none placeholder:text-muted/70"
             />
             {rec.supported && (
               <button

@@ -153,7 +153,11 @@ export const DOMAINS: Domain[] = [
         n("slice_of_life", "Slice of life", "🌸"),
         n("studio_ghibli", "Studio Ghibli", "🌿"),
       ]),
-      n("kdrama", "K-Drama", "💗"),
+      n("kdrama", "K-Drama", "💗", [
+        n("romance_kdrama", "Romance", "💞"),
+        n("thriller_kdrama", "Thriller", "🔪"),
+        n("historical_kdrama", "Historical (sageuk)", "👑"),
+      ]),
     ],
   },
 
@@ -177,11 +181,14 @@ export const DOMAINS: Domain[] = [
         n("streetball", "Streetball", "🛹"),
       ]),
       n("cricket", "Cricket", "🏏", [
-        n("ipl", "IPL", "🇮🇳"),
+        n("ipl", "IPL", "🇮🇳", [n("csk", "Chennai (CSK)", "💛"), n("mi", "Mumbai (MI)", "💙"), n("rcb", "Bangalore (RCB)", "❤️")]),
         n("test", "Test cricket", "🧢"),
       ]),
       n("f1", "Formula 1", "🏎️", [n("ferrari", "Ferrari", "🐎"), n("redbull", "Red Bull", "🐂"), n("mclaren", "McLaren", "🧡")]),
-      n("tennis", "Tennis", "🎾"),
+      n("tennis", "Tennis", "🎾", [
+        n("grand_slam", "Grand Slams", "🏆", [n("wimbledon", "Wimbledon", "🎾"), n("us_open", "US Open", "🗽")]),
+        n("tennis_goats", "The GOATs", "🐐", [n("federer", "Federer", "🎾"), n("nadal", "Nadal", "🟠"), n("djokovic", "Djokovic", "🇷🇸"), n("alcaraz", "Alcaraz", "🔥")]),
+      ]),
       n("combat", "Combat sports", "🥊", [n("mma", "MMA / UFC", "🥋"), n("boxing", "Boxing", "🥊")]),
     ],
   },
@@ -374,7 +381,110 @@ export const DOMAINS: Domain[] = [
     ],
   },
 
-  // 12 ─────────────────────────── What's Trending (weekly) ───────────────────────────
+  // 12 ─────────────────────────── Tech & Internet ───────────────────────────
+  {
+    id: "tech",
+    label: "Tech & Internet",
+    emoji: "💻",
+    children: [
+      n("coding", "Coding", "👨‍💻", [
+        n("web_dev", "Web dev", "🌐", [n("frontend", "Frontend", "🎨"), n("backend", "Backend", "🗄️")]),
+        n("ai_ml", "AI / ML", "🤖", [n("llms", "LLMs", "🧠"), n("computer_vision", "Computer vision", "👁️")]),
+        n("gamedev", "Game dev", "🕹️"),
+      ]),
+      n("gadgets", "Gadgets", "🔌", [
+        n("phones", "Phones", "📲", [n("iphone", "iPhone", "🍎"), n("android", "Android", "🤖")]),
+        n("wearables", "Wearables", "⌚"),
+        n("pc_build", "PC building", "🖥️"),
+      ]),
+      n("crypto", "Crypto & Web3", "🪙"),
+      n("startups", "Startups", "🚀"),
+      n("social_media", "Social media", "💬", [n("tiktok", "TikTok", "🎵"), n("youtube", "YouTube", "▶️"), n("reddit", "Reddit", "👽")]),
+    ],
+  },
+
+  // 13 ─────────────────────────── Fashion & Style ───────────────────────────
+  {
+    id: "fashion",
+    label: "Fashion & Style",
+    emoji: "👗",
+    children: [
+      n("streetwear", "Streetwear", "🧢", [n("sneakers", "Sneakers", "👟"), n("hype_drops", "Hype / drops", "🔥")]),
+      n("minimal_style", "Minimal / clean", "🤍", [n("capsule", "Capsule wardrobe", "🧥"), n("monochrome", "Monochrome", "⬛")]),
+      n("vintage_thrift", "Vintage / thrift", "🕰️"),
+      n("formal_wear", "Tailored / formal", "🤵"),
+      n("beauty", "Beauty & skincare", "💄", [n("skincare", "Skincare", "🧴"), n("makeup", "Makeup", "💋")]),
+    ],
+  },
+
+  // 14 ─────────────────────────── Art & Creativity ───────────────────────────
+  {
+    id: "art",
+    label: "Art & Creativity",
+    emoji: "🎨",
+    children: [
+      n("visual_art", "Visual art", "🖌️", [
+        n("painting", "Painting", "🖼️", [n("watercolor", "Watercolor", "💧"), n("oil_acrylic", "Oil & acrylic", "🎨")]),
+        n("digital_art", "Digital art", "🖊️", [n("illustration", "Illustration", "✏️"), n("blender_3d", "3D / Blender", "🧊")]),
+      ]),
+      n("crafts", "Crafts & DIY", "🧶", [n("knit_crochet", "Knit & crochet", "🧣"), n("pottery", "Pottery", "🏺")]),
+      n("writing", "Writing", "✍️", [n("poetry_writing", "Poetry", "🖋️"), n("fiction_writing", "Fiction", "📖"), n("journaling", "Journaling", "📓")]),
+      n("design", "Design", "📐", [n("graphic_design", "Graphic design", "🎯"), n("ux_design", "UX / product", "🧩")]),
+      n("filmmaking", "Film & video", "🎬"),
+    ],
+  },
+
+  // 15 ─────────────────────────── Science & Space ───────────────────────────
+  {
+    id: "science",
+    label: "Science & Space",
+    emoji: "🔭",
+    children: [
+      n("space_science", "Space", "🪐", [
+        n("astronomy", "Astronomy", "🌌", [n("planets_moons", "Planets & moons", "🌑"), n("stars_galaxies", "Stars & galaxies", "✨")]),
+        n("space_travel", "Space travel", "🚀", [n("nasa", "NASA / missions", "🛰️"), n("spacex", "SpaceX", "🛸")]),
+      ]),
+      n("physics", "Physics", "⚛️", [n("quantum", "Quantum", "🌀"), n("cosmology", "Cosmology", "🌠")]),
+      n("biology", "Biology & life", "🧬", [n("neuroscience", "Neuroscience", "🧠"), n("genetics", "Genetics", "🧫")]),
+      n("earth_science", "Nature & earth", "🌍", [n("climate", "Climate", "🌡️"), n("oceans", "Oceans", "🌊"), n("dinosaurs", "Dinosaurs", "🦕")]),
+      n("psychology", "Psychology", "🧩"),
+    ],
+  },
+
+  // 16 ─────────────────────────── Cars & Motors ───────────────────────────
+  {
+    id: "cars",
+    label: "Cars & Motors",
+    emoji: "🚗",
+    children: [
+      n("performance_cars", "Performance", "🏎️", [
+        n("supercars", "Supercars", "💎", [n("ferrari_car", "Ferrari", "🐎"), n("lamborghini", "Lamborghini", "🐂")]),
+        n("jdm", "JDM", "🇯🇵", [n("nissan_gtr", "Nissan GT-R", "🏁"), n("toyota_supra", "Toyota Supra", "🟠")]),
+      ]),
+      n("evs", "EVs", "🔋", [n("tesla", "Tesla", "⚡"), n("ev_trucks", "Trucks / Rivian", "🛻")]),
+      n("classic_cars", "Classic cars", "🚙"),
+      n("motorcycles", "Motorcycles", "🏍️", [n("sportbikes", "Sportbikes", "🏁"), n("cruisers", "Cruisers", "🛣️")]),
+      n("offroad", "Off-road & overland", "🚜"),
+    ],
+  },
+
+  // 17 ─────────────────────────── Money & Career ───────────────────────────
+  {
+    id: "money",
+    label: "Money & Career",
+    emoji: "💼",
+    children: [
+      n("investing", "Investing", "📈", [
+        n("stocks", "Stocks", "💹", [n("index_etfs", "Index / ETFs", "🧺"), n("growth_stocks", "Growth stocks", "🚀")]),
+        n("real_estate", "Real estate", "🏠"),
+      ]),
+      n("entrepreneurship", "Entrepreneurship", "🧑‍💼", [n("side_hustle", "Side hustles", "💡"), n("small_business", "Small business", "🏪")]),
+      n("personal_finance", "Personal finance", "💰", [n("budgeting", "Budgeting", "🧮"), n("fire_saving", "FIRE / saving", "🔥")]),
+      n("career_growth", "Career & growth", "📊"),
+    ],
+  },
+
+  // 18 ─────────────────────────── What's Trending (weekly) ───────────────────────────
   {
     id: "trending",
     label: "What's Trending",

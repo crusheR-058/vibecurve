@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { countdownTo, formatCountdown, type Countdown } from "@/lib/time";
+import { countdownTo, formatCountdown, nextMidnight, type Countdown } from "@/lib/time";
 
 /**
  * The countdown-to-midnight ring. A thin gradient arc quietly drains as the
@@ -17,12 +17,18 @@ export default function CountdownRing({
   size?: number;
   onExpire?: () => void;
 }) {
-  const [c, setC] = useState<Countdown>(() => countdownTo(expiresAt));
+  // `expiresAt` is computed server-side, so on a UTC-hosted server it points at
+  // UTC midnight — wrong for anyone in another timezone. "Until midnight" should
+  // always mean the *user's* local midnight, so target the client's own next
+  // local midnight, capped by the server expiry so we never count past it.
+  const [c, setC] = useState<Countdown>(() =>
+    countdownTo(Math.min(expiresAt, nextMidnight())),
+  );
   const fired = useState({ done: false })[0];
 
   useEffect(() => {
     const tick = () => {
-      const next = countdownTo(expiresAt);
+      const next = countdownTo(Math.min(expiresAt, nextMidnight()));
       setC(next);
       if (next.total <= 0 && !fired.done) {
         fired.done = true;
