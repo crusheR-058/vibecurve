@@ -15,12 +15,16 @@ export default function MidnightBurn({ onComplete }: { onComplete: () => void })
     return () => clearTimeout(t);
   }, [onComplete]);
 
+  // The white-dawn overlay gets its own short exit transition (on `exit`), not
+  // the 6s component `transition` below. Otherwise the white lingers ~6s over
+  // the incoming new-night scene and reads as a second white fade — this keeps
+  // it to a single fade: the dawn brightens once, then hands off cleanly.
   return (
     <motion.div
       className="fixed inset-0 z-50 grid place-items-center overflow-hidden"
       initial={{ background: "#141019" }}
       animate={{ background: ["#141019", "#2c2440", "#8a7caa", "#F4EEF6", "#FFFDFB"] }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.7, ease: "easeInOut" } }}
       transition={{ duration: 6, times: [0, 0.25, 0.55, 0.85, 1], ease: "easeInOut" }}
     >
       {/* embers rising */}
