@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import FloatingParticles from "@/components/ui/FloatingParticles";
+import { useEconomy } from "@/lib/economy";
 
 /**
  * The burn-to-ash. The night dissolves upward into light and the screen
@@ -14,6 +15,8 @@ export default function MidnightBurn({ onComplete }: { onComplete: () => void })
     const t = setTimeout(onComplete, 6200);
     return () => clearTimeout(t);
   }, [onComplete]);
+
+  const keptAny = useEconomy((s) => s.echoes.length > 0);
 
   // The white-dawn overlay gets its own short exit transition (on `exit`), not
   // the 6s component `transition` below. Otherwise the white lingers ~6s over
@@ -66,7 +69,9 @@ export default function MidnightBurn({ onComplete }: { onComplete: () => void })
           style={{ color: "rgba(36,31,51,0.7)" }}
           className="mt-4 text-sm"
         >
-          The room has returned to ash. Nothing was kept.
+          {keptAny
+            ? "The room is ash — but the lines you kept are yours."
+            : "The room has returned to ash. Nothing was kept."}
         </motion.p>
       </div>
     </motion.div>

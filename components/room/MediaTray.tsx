@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import StickerArt from "./StickerArt";
+import PackStoreSheet from "@/components/economy/PackStoreSheet";
 import { GIF_PACK, STICKER_PACK } from "@/lib/stickers";
+import { PACKS } from "@/lib/economyData";
+import { useEconomy } from "@/lib/economy";
 
 const QUICK_EMOJI = [
   "💜", "🫶", "🌙", "🍀", "🥹", "✨", "🌊", "☕", "😮‍💨", "🌿", "🤍", "🌧️", "🔆", "🫂",
 ];
 
-type Tab = "stickers" | "gifs" | "emoji";
+type Tab = "stickers" | "packs" | "gifs" | "emoji";
 
 export default function MediaTray({
   onEmoji,
@@ -19,6 +22,9 @@ export default function MediaTray({
   onSticker: (id: string) => void;
 }) {
   const [tab, setTab] = useState<Tab>("stickers");
+  const [store, setStore] = useState(false);
+  const owned = useEconomy((s) => s.ownedPacks);
+  const ownedPacks = PACKS.filter((p) => owned.includes(p.id));
 
   return (
     <motion.div
@@ -28,7 +34,7 @@ export default function MediaTray({
       className="absolute bottom-[72px] left-0 right-0 z-20 rounded-sheet border border-hair bg-card p-2 shadow-lift"
     >
       <div className="mb-2 flex gap-1">
-        {(["stickers", "gifs", "emoji"] as Tab[]).map((t) => (
+        {(["stickers", "packs", "gifs", "emoji"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -54,6 +60,34 @@ export default function MediaTray({
               </button>
             ))}
           </div>
+        ) : tab === "packs" ? (
+          <div className="space-y-3">
+            {ownedPacks.map((p) => (
+              <div key={p.id}>
+                <p className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                  {p.name}
+                </p>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {p.stickerIds.map((sid) => (
+                    <button
+                      key={sid}
+                      onClick={() => onSticker(sid)}
+                      className="grid place-items-center rounded-card border border-transparent p-2 transition hover:border-hair hover:bg-accent-light/30"
+                    >
+                      <StickerArt id={sid} size={64} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => setStore(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-card border border-dashed border-hair py-3 text-sm text-muted transition hover:border-accent hover:text-accent"
+            >
+              <span className="text-peach">✦</span>
+              {ownedPacks.length ? "Get more vibe packs" : "Unlock vibe packs — say it with art"}
+            </button>
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {(tab === "stickers" ? STICKER_PACK : GIF_PACK).map((s) => (
@@ -70,6 +104,10 @@ export default function MediaTray({
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {store && <PackStoreSheet onClose={() => setStore(false)} />}
+      </AnimatePresence>
     </motion.div>
   );
 }

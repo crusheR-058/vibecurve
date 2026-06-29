@@ -20,9 +20,12 @@ import { countdownTo, formatCountdown, nextMidnight, type Countdown } from "@/li
 export default function CountdownRing({
   size = 64,
   onExpire,
+  bonusMs = 0,
 }: {
   size?: number;
   onExpire?: () => void;
+  /** UI-only "hold the room open" offset added to the local midnight target. */
+  bonusMs?: number;
 }) {
   // Start unresolved so the server render and the first client paint agree —
   // nextMidnight() is timezone-dependent and would otherwise hydrate-mismatch.
@@ -32,7 +35,7 @@ export default function CountdownRing({
 
   useEffect(() => {
     const tick = () => {
-      const next = countdownTo(nextMidnight());
+      const next = countdownTo(nextMidnight() + bonusMs);
       setC(next);
       if (next.total <= 0 && !fired.done) {
         fired.done = true;
@@ -42,7 +45,7 @@ export default function CountdownRing({
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [onExpire, fired]);
+  }, [onExpire, fired, bonusMs]);
 
   const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;

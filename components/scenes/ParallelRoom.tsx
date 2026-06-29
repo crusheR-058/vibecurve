@@ -12,6 +12,16 @@ import { useVoiceRecorder, type VoiceResult } from "@/components/room/useVoiceRe
 import { getSticker } from "@/lib/stickers";
 import { MAX_AUDIO_B64 } from "@/lib/voice";
 import type { Member, Message, MessageInput, RoomState } from "@/lib/types";
+import EmberWallet from "@/components/economy/EmberWallet";
+import LeaveALightButton from "@/components/economy/LeaveALightButton";
+import WarmthPopover from "@/components/economy/WarmthPopover";
+import WarmthHalo from "@/components/economy/WarmthHalo";
+import HoldRoomButton from "@/components/economy/HoldRoomButton";
+import KeepEchoButton from "@/components/economy/KeepEchoButton";
+import GetEmbersSheet from "@/components/economy/GetEmbersSheet";
+import AuraRing from "@/components/economy/AuraRing";
+import { useEconomy } from "@/lib/economy";
+import { HOLD_MS } from "@/lib/economyData";
 
 // optimistic messages carry a local blob URL so a voice note plays instantly,
 // before the server round-trip makes it fetchable from the media route
@@ -61,6 +71,35 @@ export default function ParallelRoom({
   const scrollRef = useRef<HTMLDivElement>(null);
   const localUrlsRef = useRef<string[]>([]);
   const rec = useVoiceRecorder(30);
+
+  // ── warmth economy (UI only) ──
+  const [warmth, setWarmth] = useState<Record<string, string>>({});
+  const [warmFor, setWarmFor] = useState<string | null>(null);
+  const [heldMs, setHeldMs] = useState(0);
+  const [needEmbers, setNeedEmbers] = useState(false);
+  const aura = useEconomy((s) => s.aura);
+  const spend = useEconomy((s) => s.spend);
+  const grant = useEconomy((s) => s.grant);
+  const addWarmthReach = useEconomy((s) => s.addWarmthReach);
+
+  // Warm someone else's message. Spending refills you a little — a stranger felt
+  // it, and giving is what keeps the room warm.
+  const warmMessage = useCallback(
+    (id: string, tier: string, embers: number) => {
+      setWarmFor(null);
+      if (embers > 0 && !spend(embers)) {
+        setNeedEmbers(true);
+        return;
+      }
+      setWarmth((w) => ({ ...w, [id]: tier }));
+      addWarmthReach(1);
+      setTimeout(() => {
+        grant(1);
+        toast("a stranger felt your warmth · +1 ✦", "✦");
+      }, 900);
+    },
+    [spend, grant, addWarmthReach],
+  );
 
   const poll = useCallback(async () => {
     try {
@@ -196,25 +235,44 @@ export default function ParallelRoom({
             {matchPercent}% parallel · {members.length} here tonight
           </p>
         </div>
-        {room && <CountdownRing onExpire={onBurn} size={58} />}
+        <div className="flex items-center gap-3">
+          <EmberWallet />
+          {room && <CountdownRing onExpire={onBurn} size={58} bonusMs={heldMs} />}
+        </div>
       </motion.header>
 
       {/* member orbs */}
       <div className="flex items-center gap-2 pb-3">
-        {members.map((m, i) => (
-          <motion.div
-            key={m.userId}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: i * 0.06, type: "spring", stiffness: 320, damping: 18 }}
-            className={`grid h-9 w-9 place-items-center rounded-full text-lg shadow-soft ${
-              m.userId === userId ? "bg-accent-light ring-2 ring-accent" : "bg-card border border-hair"
-            }`}
-            title={m.userId === userId ? "you" : undefined}
-          >
-            {m.emoji}
-          </motion.div>
-        ))}
+        {members.map((m, i) => {
+          const isMe = m.userId === userId;
+          const orb = (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: i * 0.06, type: "spring", stiffness: 320, damping: 18 }}
+              className={`grid h-9 w-9 place-items-center rounded-full text-lg shadow-soft ${
+                isMe ? "bg-accent-light ring-2 ring-accent" : "bg-card border border-hair"
+              }`}
+              title={isMe ? "you" : undefined}
+            >
+              {m.emoji}
+            </motion.div>
+          );
+          return (
+            <div key={m.userId} className="shrink-0">
+              {isMe ? (
+                <AuraRing auraId={aura} size={36}>
+                  {orb}
+                </AuraRing>
+              ) : (
+                orb
+              )}
+            </div>
+          );
+        })}
+        {room && (
+          <HoldRoomButton onHold={() => setHeldMs((ms) => ms + HOLD_MS)} className="ml-auto" />
+        )}
       </div>
 
       {/* group voice call — peer-to-peer audio, faces stay hidden */}
@@ -236,38 +294,70 @@ export default function ParallelRoom({
                 initial={{ opacity: 0, y: 12, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 260, damping: 22 }}
-                className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}
+                className={`group relative flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}
               >
                 <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-hair bg-card text-sm shadow-soft">
                   {m.emoji}
                 </div>
 
-                {m.kind === "text" && (
-                  <div
-                    className={`max-w-[76%] rounded-card px-4 py-2.5 text-[15px] leading-relaxed shadow-soft ${
-                      mine
-                        ? "rounded-br-md bg-accent text-white"
-                        : "rounded-bl-md border border-hair bg-card text-ink"
-                    }`}
+                <WarmthHalo
+                  tier={warmth[m.id] ?? null}
+                  className="max-w-[80%]"
+                  radius={mine ? "rounded-card rounded-br-md" : "rounded-card rounded-bl-md"}
+                >
+                  {m.kind === "text" && (
+                    <div
+                      className={`rounded-card px-4 py-2.5 text-[15px] leading-relaxed shadow-soft ${
+                        mine
+                          ? "rounded-br-md bg-accent text-white"
+                          : "rounded-bl-md border border-hair bg-card text-ink"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                  )}
+
+                  {(m.kind === "sticker" || m.kind === "gif") && m.stickerId && (
+                    <div className="px-1 py-1">
+                      <StickerArt id={m.stickerId} size={m.kind === "gif" ? 112 : 96} />
+                    </div>
+                  )}
+
+                  {m.kind === "voice" && (
+                    <div>
+                      <VoicePlayer
+                        mine={mine}
+                        duration={m.duration ?? 0}
+                        src={m.localUrl ?? `/api/room/${roomId}/media?m=${encodeURIComponent(m.id)}`}
+                      />
+                    </div>
+                  )}
+                </WarmthHalo>
+
+                {/* keep one line past midnight (text only) */}
+                {m.kind === "text" && m.text && (
+                  <KeepEchoButton
+                    echo={{ id: m.id, text: m.text, emoji: m.emoji, roomId, keptAt: Date.now() }}
+                  />
+                )}
+
+                {/* warm someone else's message — warmth flows outward, never to you */}
+                {!mine && (
+                  <button
+                    onClick={() => setWarmFor((w) => (w === m.id ? null : m.id))}
+                    aria-label="send warmth"
+                    className="shrink-0 self-center text-sm text-transparent transition hover:text-peach group-hover:text-muted"
                   >
-                    {m.text}
-                  </div>
+                    ✨
+                  </button>
                 )}
 
-                {(m.kind === "sticker" || m.kind === "gif") && m.stickerId && (
-                  <div className="px-1 py-1">
-                    <StickerArt id={m.stickerId} size={m.kind === "gif" ? 112 : 96} />
-                  </div>
-                )}
-
-                {m.kind === "voice" && (
-                  <div className="max-w-[80%]">
-                    <VoicePlayer
-                      mine={mine}
-                      duration={m.duration ?? 0}
-                      src={m.localUrl ?? `/api/room/${roomId}/media?m=${encodeURIComponent(m.id)}`}
-                    />
-                  </div>
+                {warmFor === m.id && (
+                  <WarmthPopover
+                    className={mine ? "bottom-full right-10 mb-1" : "bottom-full left-10 mb-1"}
+                    onClose={() => setWarmFor(null)}
+                    onPick={(tier, embers) => warmMessage(m.id, tier, embers)}
+                  />
                 )}
               </motion.div>
             );
@@ -358,6 +448,7 @@ export default function ParallelRoom({
               maxLength={500}
               className="min-w-0 flex-1 bg-transparent px-1 text-[15px] text-ink outline-none placeholder:text-muted/70"
             />
+            <LeaveALightButton onGiven={() => sendSticker("light")} />
             {rec.supported && (
               <button
                 onClick={onMic}
@@ -386,6 +477,10 @@ export default function ParallelRoom({
           let tonight end ›
         </button>
       </div>
+
+      <AnimatePresence>
+        {needEmbers && <GetEmbersSheet onClose={() => setNeedEmbers(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

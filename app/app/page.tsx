@@ -26,12 +26,14 @@ import {
   setEmoji,
 } from "@/lib/session";
 import type { CurvePoints, MatchResult, Profile } from "@/lib/types";
+import LightReceived from "@/components/economy/LightReceived";
+import { RECEIVED_LIGHTS } from "@/lib/economyData";
 
 // VibeCheck = the curve experience only. Login + walkthrough happen at "/",
 // so here we guard (signed in + onboarded) then draw → match → room → burn.
 // When the night burns, we re-open the flashcards for fresh interests and
 // rotate the anonymous emoji handle — every session starts clean & nameless.
-type Scene = "loading" | "draw" | "matching" | "room" | "burn" | "refresh";
+type Scene = "loading" | "draw" | "matching" | "light" | "room" | "burn" | "refresh";
 
 export default function VibeCheckPage() {
   const router = useRouter();
@@ -41,6 +43,7 @@ export default function VibeCheckPage() {
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [lightText, setLightText] = useState("");
 
   const userId = session?.user?.email ?? getUserId();
 
@@ -99,11 +102,18 @@ export default function VibeCheckPage() {
     [userId],
   );
 
-  // stable so Matching's reveal timer isn't reset by unrelated parent re-renders
+  // stable so Matching's reveal timer isn't reset by unrelated parent re-renders.
+  // After a heavy day, a light a past stranger left greets you before the room.
   const handleResolved = useCallback(() => {
+    const avg = points.reduce((s, v) => s + v, 0) / points.length;
+    if (avg <= 3.4) {
+      setLightText(RECEIVED_LIGHTS[Math.floor(Math.random() * RECEIVED_LIGHTS.length)]);
+      setScene("light");
+      return;
+    }
     setScene("room");
     toast("You found your parallel — say hi", "🫂");
-  }, []);
+  }, [points]);
 
   const immersive = scene === "room" || scene === "burn";
   const showBar = scene === "draw" || scene === "matching";
@@ -185,6 +195,18 @@ export default function VibeCheckPage() {
                 ready={ready}
                 resolvedPercent={match?.matchPercent ?? null}
                 onResolved={handleResolved}
+              />
+            </motion.div>
+          )}
+
+          {scene === "light" && (
+            <motion.div key="light" className="absolute inset-0 overflow-y-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <LightReceived
+                text={lightText}
+                onContinue={() => {
+                  setScene("room");
+                  toast("You found your parallel — say hi", "🫂");
+                }}
               />
             </motion.div>
           )}

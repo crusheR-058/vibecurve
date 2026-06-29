@@ -54,14 +54,25 @@ export default function StickerArt({ id, size = 104 }: { id: string; size?: numb
   return (
     <div className="relative flex flex-col items-center justify-center" style={{ width: size }}>
       <div className="relative grid place-items-center" style={{ width: size, height: size }}>
-        {!reduce && <Particles preset={s.preset} size={size} />}
+        {!reduce && !s.src && <Particles preset={s.preset} size={size} />}
         <motion.div
           className="relative z-10 select-none leading-none"
           style={{ fontSize: glyph }}
           animate={animate}
           transition={transition}
         >
-          {s.glyph}
+          {s.src ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={s.src}
+              alt={s.label}
+              draggable={false}
+              className="pointer-events-none select-none"
+              style={{ width: size * 0.94, height: size * 0.94, objectFit: "contain" }}
+            />
+          ) : (
+            s.glyph
+          )}
         </motion.div>
       </div>
       {s.caption && (
