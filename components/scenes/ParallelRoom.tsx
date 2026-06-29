@@ -196,7 +196,7 @@ export default function ParallelRoom({
             {matchPercent}% parallel · {members.length} here tonight
           </p>
         </div>
-        {room && <CountdownRing expiresAt={room.expiresAt} onExpire={onBurn} size={58} />}
+        {room && <CountdownRing onExpire={onBurn} size={58} />}
       </motion.header>
 
       {/* member orbs */}

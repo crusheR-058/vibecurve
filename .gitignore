@@ -3,6 +3,11 @@
 /.pnp
 .pnp.js
 
+# remotion ad project (standalone workspace under /ad)
+/ad/node_modules
+/ad/out
+/ad/.remotion-cache
+
 # next.js
 /.next/
 /out/

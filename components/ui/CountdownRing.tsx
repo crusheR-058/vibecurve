@@ -7,28 +7,32 @@ import { countdownTo, formatCountdown, nextMidnight, type Countdown } from "@/li
 /**
  * The countdown-to-midnight ring. A thin gradient arc quietly drains as the
  * night runs out — the visual heartbeat of the room's ephemerality.
+ *
+ * "Until midnight" always means the *viewer's own* local midnight. We derive it
+ * on the client from the browser clock, which auto-detects the user's timezone
+ * (IST, PST, …) — never from the server's expiry. The server computes expiry in
+ * its own local time, and a UTC-hosted server's "midnight" is UTC midnight,
+ * which is wrong for anyone east or west of UTC. For IST that read ~3–4h left
+ * between 00:00 and 05:30 local instead of the true ~22h; the room's server
+ * expiry stays the data-lifecycle instant, but the ring is purely the viewer's
+ * own clock.
  */
 export default function CountdownRing({
-  expiresAt,
   size = 64,
   onExpire,
 }: {
-  expiresAt: number;
   size?: number;
   onExpire?: () => void;
 }) {
-  // `expiresAt` is computed server-side, so on a UTC-hosted server it points at
-  // UTC midnight — wrong for anyone in another timezone. "Until midnight" should
-  // always mean the *user's* local midnight, so target the client's own next
-  // local midnight, capped by the server expiry so we never count past it.
-  const [c, setC] = useState<Countdown>(() =>
-    countdownTo(Math.min(expiresAt, nextMidnight())),
-  );
+  // Start unresolved so the server render and the first client paint agree —
+  // nextMidnight() is timezone-dependent and would otherwise hydrate-mismatch.
+  // The mount effect fills in the real, locally-detected value immediately.
+  const [c, setC] = useState<Countdown | null>(null);
   const fired = useState({ done: false })[0];
 
   useEffect(() => {
     const tick = () => {
-      const next = countdownTo(Math.min(expiresAt, nextMidnight()));
+      const next = countdownTo(nextMidnight());
       setC(next);
       if (next.total <= 0 && !fired.done) {
         fired.done = true;
@@ -38,7 +42,7 @@ export default function CountdownRing({
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [expiresAt, onExpire, fired]);
+  }, [onExpire, fired]);
 
   const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;
@@ -70,14 +74,14 @@ export default function CountdownRing({
             strokeWidth={4}
             strokeLinecap="round"
             strokeDasharray={circ}
-            animate={{ strokeDashoffset: circ * (1 - c.fraction) }}
+            animate={{ strokeDashoffset: circ * (1 - (c?.fraction ?? 1)) }}
             transition={{ duration: 1, ease: "linear" }}
           />
         </svg>
         <span className="absolute inset-0 grid place-items-center text-base">🌙</span>
       </div>
       <div className="leading-tight">
-        <div className="font-mono text-sm tabular-nums text-ink">{formatCountdown(c)}</div>
+        <div className="font-mono text-sm tabular-nums text-ink">{c ? formatCountdown(c) : "--:--:--"}</div>
         <div className="text-xs text-muted">until midnight</div>
       </div>
     </div>
