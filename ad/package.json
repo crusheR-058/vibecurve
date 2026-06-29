@@ -8,7 +8,7 @@
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts VibeCurveAd out/vibecurve-ad.mp4",
     "render:vertical": "remotion render src/index.ts VibeCurveAdVertical out/vibecurve-ad-vertical.mp4",
-    "still": "remotion still src/index.ts VibeCurveAd out/poster.png --frame=95",
+    "still": "remotion still src/index.ts Poster out/poster.png --frame=50",
     "typecheck": "tsc --noEmit",
     "upgrade": "remotion upgrade"
   },

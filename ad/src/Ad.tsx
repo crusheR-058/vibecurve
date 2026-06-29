@@ -4,57 +4,45 @@ import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { Intro } from "./scenes/Intro";
 import { Hook } from "./scenes/Hook";
+import { Flashcards } from "./scenes/Flashcards";
 import { DrawDay } from "./scenes/DrawDay";
 import { Match } from "./scenes/Match";
 import { Rooms } from "./scenes/Rooms";
+import { Warmth } from "./scenes/Warmth";
+import { Plus } from "./scenes/Plus";
 import { Burn } from "./scenes/Burn";
+import { CTA } from "./scenes/CTA";
 import { Soundtrack } from "./Soundtrack";
+import { SCENE_DURATIONS, XFADE } from "./timeline";
 import { COLORS } from "./theme";
 
-const XFADE = 18;
-const timing = () => linearTiming({ durationInFrames: XFADE });
+const SCENES = [<Intro />, <Hook />, <Flashcards />, <DrawDay />, <Match />, <Rooms />, <Warmth />, <Plus />, <Burn />, <CTA />];
 
 /**
- * The 30-second VibeCurve ad: intro → hook → draw your day → match → rooms →
- * midnight burn + CTA, stitched with soft cross-fades.
+ * The 90-second VibeCurve ad:
+ * intro → hook → build your profile (flashcards) → draw your day → match →
+ * anonymous rooms → the warmth economy → VibeCurve+ → midnight burn → CTA.
  *
- * Scene frames sum to 990; five 18-frame fades overlap, so the timeline lands
- * at 900 frames = 30.0s @ 30fps. Keep `durationInFrames` in Root.tsx in sync.
+ * Children are pushed into a flat array (not a fragment map) so TransitionSeries
+ * sees Sequence/Transition nodes directly.
  */
 export const VibeCurveAd: React.FC = () => {
+  const timing = () => linearTiming({ durationInFrames: XFADE });
+  const children: React.ReactNode[] = [];
+  SCENES.forEach((node, i) => {
+    children.push(
+      <TransitionSeries.Sequence key={`s${i}`} durationInFrames={SCENE_DURATIONS[i]}>
+        {node}
+      </TransitionSeries.Sequence>
+    );
+    if (i < SCENES.length - 1) {
+      children.push(<TransitionSeries.Transition key={`t${i}`} presentation={fade()} timing={timing()} />);
+    }
+  });
+
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.bg }}>
-      <TransitionSeries>
-        <TransitionSeries.Sequence durationInFrames={130}>
-          <Intro />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition presentation={fade()} timing={timing()} />
-
-        <TransitionSeries.Sequence durationInFrames={160}>
-          <Hook />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition presentation={fade()} timing={timing()} />
-
-        <TransitionSeries.Sequence durationInFrames={200}>
-          <DrawDay />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition presentation={fade()} timing={timing()} />
-
-        <TransitionSeries.Sequence durationInFrames={170}>
-          <Match />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition presentation={fade()} timing={timing()} />
-
-        <TransitionSeries.Sequence durationInFrames={170}>
-          <Rooms />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition presentation={fade()} timing={timing()} />
-
-        <TransitionSeries.Sequence durationInFrames={160}>
-          <Burn />
-        </TransitionSeries.Sequence>
-      </TransitionSeries>
-
+      <TransitionSeries>{children}</TransitionSeries>
       <Soundtrack />
     </AbsoluteFill>
   );

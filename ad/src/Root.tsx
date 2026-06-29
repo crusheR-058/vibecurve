@@ -1,10 +1,9 @@
 import React from "react";
 import { Composition } from "remotion";
 import { VibeCurveAd } from "./Ad";
+import { Poster } from "./Poster";
+import { FPS, TOTAL as DURATION } from "./timeline";
 import "./fonts"; // trigger webfont loading (delayRender) before first paint
-
-const FPS = 30;
-const DURATION = 900; // 30.0s — see Ad.tsx for the per-scene budget
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -27,6 +26,8 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
       />
+      {/* Poster / thumbnail still (logo + hero line only) */}
+      <Composition id="Poster" component={Poster} durationInFrames={60} fps={FPS} width={1920} height={1080} />
     </>
   );
 };
